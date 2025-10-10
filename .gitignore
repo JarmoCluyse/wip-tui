@@ -1,0 +1,29 @@
+# Build artifacts
+git-tui
+wip-tui
+*.exe
+
+# Configuration files
+config.json
+
+# Log files
+*.log
+
+# Test directories
+test-setup/
+test_*/
+
+# Go specific
+*.test
+*.prof
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
