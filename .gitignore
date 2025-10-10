@@ -5,6 +5,7 @@ wip-tui
 
 # Configuration files
 config.json
+.env
 
 # Log files
 *.log

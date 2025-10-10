@@ -32,6 +32,26 @@ go build .
 ./git-tui
 ```
 
+### Command Line Options
+
+```bash
+./git-tui [options]
+```
+
+**Options:**
+- `-c, --config <path>`: Specify a custom configuration file path
+- `-h, --help`: Show help information
+- `-v, --version`: Show version information
+
+**Examples:**
+```bash
+./git-tui                              # Use default config (~/.git-tui.toml)
+./git-tui -c ~/.config/git-tui.toml    # Use custom config file
+./git-tui --config /path/to/config.toml
+./git-tui --help                       # Show detailed help
+./git-tui --version                    # Show version information
+```
+
 ### Repository Discovery Workflow
 
 1. **Open Explorer**: Press `e` to open the folder explorer
@@ -97,7 +117,46 @@ This TUI is designed with bare repository workflows in mind:
 
 ## Configuration
 
-Repository configurations are stored in `~/.git-tui.json`
+Configuration is stored in TOML format. The default location is `~/.git-tui.toml`, but you can specify a custom location using the `--config` flag.
+
+**Default Configuration Locations (in order of priority):**
+1. Path specified with `--config` or `-c` flag
+2. Path specified in `GIT_TUI_CONFIG` environment variable  
+3. `~/.git-tui.toml` (default)
+
+**Example Configuration:**
+```toml
+repository_paths = [
+    "/path/to/repo1",
+    "/path/to/repo2"
+]
+
+[theme.colors]
+title = "#FF6B6B"
+title_background = "#000000"
+selected = "#4ECDC4"
+status_dirty = "#FFE66D"
+status_unpushed = "#FF6B6B"
+status_untracked = "#95E1D3"
+status_error = "#F38BA8"
+status_clean = "#A8E6CF"
+status_not_added = "#FFB6C1"
+help = "#B0B0B0"
+border = "#4A4A4A"
+modal_background = "#1A1A1A"
+
+[theme.indicators]
+clean = "✨"
+dirty = "🔥"
+unpushed = "⬆️"
+untracked = "❓"
+error = "💥"
+not_added = "➕"
+```
+
+**Customizable Theme Options:**
+- **Colors**: All UI colors can be customized using hex color codes
+- **Indicators**: Status indicators can be customized with any Unicode characters/emojis
 
 ## Architecture
 

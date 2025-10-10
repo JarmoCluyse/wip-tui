@@ -21,7 +21,7 @@ all: build
 
 ## build: Build the binary
 build:
-	$(GOBUILD) -o $(BINARY_NAME) .
+	$(GOBUILD) -o $(BINARY_NAME) ./cmd
 
 ## clean: Clean build artifacts
 clean:
@@ -31,6 +31,10 @@ clean:
 ## run: Build and run the application
 run: build
 	./$(BINARY_NAME)
+
+## run-custom: Build and run with custom config
+run-custom: build
+	./$(BINARY_NAME) -c test_configs/custom.toml
 
 ## test: Run tests
 test:
@@ -74,7 +78,7 @@ check: fmt vet test
 
 ## release: Build optimized binary for release
 release:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags="-w -s" -o $(BINARY_NAME) .
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags="-w -s" -o $(BINARY_NAME) ./cmd
 
 ## help: Show this help message
 help:

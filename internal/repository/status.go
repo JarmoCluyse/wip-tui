@@ -1,0 +1,102 @@
+package repository
+
+import (
+	"runtime"
+	"sync"
+
+	"github.com/jarmocluyse/wip-tui/internal/git"
+)
+
+type StatusUpdater struct {
+	gitChecker git.StatusChecker
+}
+
+func NewStatusUpdater(gitChecker git.StatusChecker) *StatusUpdater {
+	return &StatusUpdater{
+		gitChecker: gitChecker,
+	}
+}
+
+func (s *StatusUpdater) UpdateStatus(repo *Repository) {
+	if !s.gitChecker.IsGitRepository(repo.Path) {
+		s.setErrorStatus(repo)
+		return
+	}
+
+	repo.IsBare = s.gitChecker.IsBareRepository(repo.Path)
+	repo.IsWorktree = s.gitChecker.IsWorktree(repo.Path)
+	repo.HasError = false
+
+	if repo.IsBare {
+		s.updateBareRepositoryStatus(repo)
+	} else {
+		s.updateRegularRepositoryStatus(repo)
+	}
+}
+
+func (s *StatusUpdater) UpdateRepositories(repositories []Repository) {
+	// Use a worker pool to process repositories concurrently
+	numWorkers := runtime.NumCPU()
+	if len(repositories) < numWorkers {
+		numWorkers = len(repositories)
+	}
+
+	// Channel for sending repositories to workers
+	repoChan := make(chan int, len(repositories))
+
+	// WaitGroup to wait for all workers to complete
+	var wg sync.WaitGroup
+
+	// Start workers
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for repoIndex := range repoChan {
+				s.UpdateStatus(&repositories[repoIndex])
+			}
+		}()
+	}
+
+	// Send repository indices to workers
+	for i := range repositories {
+		repoChan <- i
+	}
+	close(repoChan)
+
+	// Wait for all workers to complete
+	wg.Wait()
+}
+
+func (s *StatusUpdater) updateBareRepositoryStatus(repo *Repository) {
+	repo.HasUncommitted = false
+	repo.HasUntracked = false
+
+	worktrees, err := s.gitChecker.ListWorktrees(repo.Path)
+	if err != nil {
+		repo.HasUnpushed = false
+		return
+	}
+
+	repo.HasUnpushed = len(worktrees) > 0
+}
+
+func (s *StatusUpdater) updateRegularRepositoryStatus(repo *Repository) {
+	repo.HasUncommitted = s.gitChecker.HasUncommittedChanges(repo.Path)
+	repo.HasUnpushed = s.gitChecker.HasUnpushedCommits(repo.Path)
+	repo.HasUntracked = s.gitChecker.HasUntrackedFiles(repo.Path)
+}
+
+func (s *StatusUpdater) setCleanStatus(repo *Repository) {
+	repo.HasUncommitted = false
+	repo.HasUnpushed = false
+	repo.HasUntracked = false
+	repo.HasError = false
+}
+
+func (s *StatusUpdater) setErrorStatus(repo *Repository) {
+	repo.HasUncommitted = false
+	repo.HasUnpushed = false
+	repo.HasUntracked = false
+	repo.HasError = true
+}
