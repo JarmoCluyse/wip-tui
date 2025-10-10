@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `NavigableItem` type for unified repository and worktree handling
 - Relative path display for worktrees with proper icons (🌳 for worktrees, 📁 for bare repos)
 - Action handling that properly distinguishes between repositories and worktrees (delete only works on repos)
+- **Lazygit integration**: Press `l` to open selected repository or worktree in lazygit
+- Lazygit support in both main view and explorer view for seamless Git operations
 
 ### Changed
 - Modified explorer view to automatically detect worktrees under bare repositories

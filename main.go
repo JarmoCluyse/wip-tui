@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -228,6 +229,8 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.deleteSelectedRepository()
 	case "r":
 		return m, m.updateRepositoryStatuses()
+	case "l":
+		return m.openInLazygit()
 	}
 	return m, nil
 }
@@ -284,6 +287,8 @@ func (m Model) handleExplorerViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "space", " ":
 		logger.Info("space key detected, calling toggleRepositorySelection", "key", keyStr)
 		return m.toggleRepositorySelection()
+	case "l":
+		return m.openExplorerInLazygit()
 	default:
 		logger.Debug("unhandled key in explorer",
 			"key", keyStr,
@@ -443,6 +448,71 @@ func (m Model) discoverWorktrees() (Model, tea.Cmd) {
 
 	m.dependencies.configService.Save(m.config)
 	return m, m.updateRepositoryStatuses()
+}
+
+func (m Model) openInLazygit() (Model, tea.Cmd) {
+	navigableItems := m.buildNavigableItems()
+	if m.cursor >= len(navigableItems) {
+		return m, nil
+	}
+
+	selectedItem := navigableItems[m.cursor]
+	var targetPath string
+
+	if selectedItem.Type == "worktree" {
+		targetPath = selectedItem.WorktreeInfo.Path
+	} else if selectedItem.Type == "repository" {
+		targetPath = selectedItem.Repository.Path
+	} else {
+		return m, nil
+	}
+
+	// Check if lazygit is available
+	if _, err := exec.LookPath("lazygit"); err != nil {
+		logger.Error("lazygit not found in PATH", "error", err)
+		return m, nil
+	}
+
+	// Create command to run lazygit in the target directory
+	cmd := exec.Command("lazygit", "-p", targetPath)
+
+	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+		if err != nil {
+			logger.Error("failed to run lazygit", "error", err, "path", targetPath)
+		}
+		return nil
+	})
+}
+
+func (m Model) openExplorerInLazygit() (Model, tea.Cmd) {
+	if m.explorerCursor >= len(m.explorerItems) {
+		return m, nil
+	}
+
+	selectedItem := m.explorerItems[m.explorerCursor]
+	targetPath := selectedItem.Path
+
+	// If it's not a git repository, try to find the nearest git repository
+	if !selectedItem.IsGitRepo {
+		// Use the current explorer path as fallback
+		targetPath = m.explorerPath
+	}
+
+	// Check if lazygit is available
+	if _, err := exec.LookPath("lazygit"); err != nil {
+		logger.Error("lazygit not found in PATH", "error", err)
+		return m, nil
+	}
+
+	// Create command to run lazygit in the target directory
+	cmd := exec.Command("lazygit", "-p", targetPath)
+
+	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+		if err != nil {
+			logger.Error("failed to run lazygit", "error", err, "path", targetPath)
+		}
+		return nil
+	})
 }
 
 func (m Model) buildNavigableItems() []NavigableItem {
@@ -840,7 +910,7 @@ func (r *ListViewRenderer) renderHelp() string {
 	help := r.styles.help.Render("\nControls:")
 	help += r.styles.help.Render("  ↑/k: move up   ↓/j: move down")
 	help += r.styles.help.Render("  a: add repo    e: explore    d: delete repo    r: refresh")
-	help += r.styles.help.Render("  w: discover worktrees from bare repo    q: quit")
+	help += r.styles.help.Render("  w: discover worktrees from bare repo    l: open in lazygit    q: quit")
 	help += r.styles.help.Render("\nIndicators:")
 	help += r.styles.help.Render("  📁: bare repo   🌳: worktree   ●: uncommitted   ↑: unpushed   ?: untracked   ✗: error   ✓: clean")
 	return help

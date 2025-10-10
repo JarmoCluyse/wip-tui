@@ -1,4 +1,4 @@
-module git-tui
+module github.com/jarmocluyse/wip-tui
 
 go 1.25.2
 
