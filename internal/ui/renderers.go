@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jarmocluyse/wip-tui/internal/explorer"
+	"github.com/jarmocluyse/wip-tui/internal/git"
 	"github.com/jarmocluyse/wip-tui/internal/repository"
 	"github.com/jarmocluyse/wip-tui/internal/theme"
 	"github.com/jarmocluyse/wip-tui/internal/ui/header"
@@ -49,7 +50,7 @@ func (r *ListViewRenderer) Render(repositories []repository.Repository, cursor i
 	if len(repositories) == 0 {
 		content += r.renderEmptyState()
 	} else {
-		content += r.renderRepositoryList(repositories, cursor)
+		content += r.renderRepositoryList(repositories, cursor, width)
 	}
 
 	// Position help at bottom of terminal
@@ -62,14 +63,14 @@ func (r *ListViewRenderer) Render(repositories []repository.Repository, cursor i
 	)
 }
 
-func (r *ListViewRenderer) RenderNavigable(items []NavigableItem, cursor int, width, height int) string {
+func (r *ListViewRenderer) RenderNavigable(items []NavigableItem, cursor int, width, height int, gitChecker git.StatusChecker) string {
 	title := r.header.Render("Git Repository Status", width)
 
 	var mainContent string
 	if len(items) == 0 {
 		mainContent = r.renderEmptyState()
 	} else {
-		mainContent = r.renderNavigableItemList(items, cursor)
+		mainContent = r.renderNavigableItemList(items, cursor, width, gitChecker)
 	}
 
 	// Position help at bottom of terminal
@@ -105,7 +106,7 @@ func (r *ListViewRenderer) RenderNavigable(items []NavigableItem, cursor int, wi
 	return fullContent
 }
 
-func (r *ListViewRenderer) renderNavigableItemList(items []NavigableItem, cursor int) string {
+func (r *ListViewRenderer) renderNavigableItemList(items []NavigableItem, cursor int, width int, gitChecker git.StatusChecker) string {
 	var content string
 	i := 0
 
@@ -114,24 +115,23 @@ func (r *ListViewRenderer) renderNavigableItemList(items []NavigableItem, cursor
 
 		if item.Type == "repository" && item.Repository.IsBare {
 			// Start of bare repository group - collect all items in this group
-			groupContent := r.renderNavigableItem(item, i, cursor)
+			groupContent := r.renderNavigableItem(item, i, cursor, width, gitChecker)
 
 			// Add all worktrees that belong to this bare repository
 			j := i + 1
 			for j < len(items) && items[j].Type == "worktree" && items[j].ParentRepo.Path == item.Repository.Path {
-				groupContent += "\n" + r.renderNavigableItem(items[j], j, cursor)
+				groupContent += "\n" + r.renderNavigableItem(items[j], j, cursor, width, gitChecker)
 				j++
 			}
 
-			// Wrap the entire group in a border
-			borderedGroup := r.styles.Border.Render(groupContent)
-			content += borderedGroup + "\n"
+			// No border - just add the group content directly
+			content += groupContent + "\n"
 
 			// Move index to after the group
 			i = j
 		} else {
 			// Regular item (non-bare repository or standalone worktree)
-			content += r.renderNavigableItem(item, i, cursor) + "\n"
+			content += r.renderNavigableItem(item, i, cursor, width, gitChecker) + "\n"
 			i++
 		}
 	}
@@ -139,17 +139,17 @@ func (r *ListViewRenderer) renderNavigableItemList(items []NavigableItem, cursor
 	return content
 }
 
-func (r *ListViewRenderer) renderNavigableItem(item NavigableItem, index, cursor int) string {
+func (r *ListViewRenderer) renderNavigableItem(item NavigableItem, index, cursor int, width int, gitChecker git.StatusChecker) string {
 	isSelected := index == cursor
 	cursorIndicator := r.getCursorIndicator(isSelected)
 
 	if item.Type == "repository" {
-		return r.repo.RenderRepositoryOnly(*item.Repository, isSelected, cursorIndicator)
+		return r.repo.RenderRepositoryOnly(*item.Repository, isSelected, cursorIndicator, width)
 	} else if item.Type == "worktree" {
 		wt := item.WorktreeInfo
 		parentName := item.ParentRepo.Name
 
-		return r.repo.RenderWorktree(*wt, parentName, item.ParentRepo.Path, isSelected, cursorIndicator, item.IsLast)
+		return r.repo.RenderWorktree(*wt, parentName, item.ParentRepo.Path, isSelected, cursorIndicator, item.IsLast, width, gitChecker)
 	}
 
 	return ""
@@ -159,18 +159,18 @@ func (r *ListViewRenderer) renderEmptyState() string {
 	return r.styles.Item.Render("No repositories configured.") + "\n\n"
 }
 
-func (r *ListViewRenderer) renderRepositoryList(repositories []repository.Repository, cursor int) string {
+func (r *ListViewRenderer) renderRepositoryList(repositories []repository.Repository, cursor int, width int) string {
 	var content string
 	for i, repo := range repositories {
-		content += r.renderRepositoryItem(repo, i, cursor)
+		content += r.renderRepositoryItem(repo, i, cursor, width)
 	}
 	return content
 }
 
-func (r *ListViewRenderer) renderRepositoryItem(repo repository.Repository, index, cursor int) string {
+func (r *ListViewRenderer) renderRepositoryItem(repo repository.Repository, index, cursor int, width int) string {
 	isSelected := index == cursor
 	cursorIndicator := r.getCursorIndicator(isSelected)
-	return r.repo.RenderRepository(repo, isSelected, cursorIndicator)
+	return r.repo.RenderRepository(repo, isSelected, cursorIndicator, width)
 }
 
 func (r *ListViewRenderer) getCursorIndicator(isSelected bool) string {

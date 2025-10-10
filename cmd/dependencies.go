@@ -22,7 +22,7 @@ func NewAppDependencies(configPath string) *AppDependencies {
 		configService = config.NewFileConfigService()
 	}
 
-	gitChecker := git.NewChecker()
+	gitChecker := git.NewCachedChecker()
 	statusUpdater := repository.NewStatusUpdater(gitChecker)
 
 	return &AppDependencies{

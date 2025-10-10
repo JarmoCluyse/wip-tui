@@ -25,21 +25,23 @@ type Dependencies interface {
 }
 
 type Model struct {
-	Dependencies   Dependencies
-	Config         *config.Config
-	RepoHandler    *repository.Handler
-	State          ViewState
-	Cursor         int
-	ScrollOffset   int // New field for scrolling
-	InputField     string
-	InputPrompt    string
-	ExplorerPath   string
-	ExplorerItems  []explorer.Item
-	ExplorerCursor int
-	ShowHelpModal  bool
-	Width          int
-	Height         int
-	Err            error
+	Dependencies     Dependencies
+	Config           *config.Config
+	RepoHandler      *repository.Handler
+	State            ViewState
+	Cursor           int
+	ScrollOffset     int // New field for scrolling
+	InputField       string
+	InputPrompt      string
+	ExplorerPath     string
+	ExplorerItems    []explorer.Item
+	ExplorerCursor   int
+	ShowHelpModal    bool
+	Width            int
+	Height           int
+	Err              error
+	CachedNavItems   []NavigableItem // Cache for navigable items
+	NavItemsNeedSync bool            // Flag to indicate cache needs update
 }
 
 type NavigableItem struct {

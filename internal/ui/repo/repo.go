@@ -42,7 +42,7 @@ func NewRenderer(styles StyleConfig, themeConfig theme.Theme) *Renderer {
 
 // RenderRepository renders a repository item with cursor indication and selection
 // This is the old method that includes worktrees - kept for backward compatibility
-func (r *Renderer) RenderRepository(repo repository.Repository, isSelected bool, cursorIndicator string) string {
+func (r *Renderer) RenderRepository(repo repository.Repository, isSelected bool, cursorIndicator string, width int) string {
 	style := r.getItemStyle(isSelected)
 	statusIndicator := r.getStatusIndicator(repo)
 
@@ -69,8 +69,11 @@ func (r *Renderer) RenderRepository(repo repository.Repository, isSelected bool,
 	// Create the main content without status (for left alignment)
 	leftContent := fmt.Sprintf("%s %s %s%s", cursorIndicator, icon, repo.Name, branchInfo)
 
-	// Calculate padding to right-align status (assuming 110 char width to account for border)
-	totalWidth := 110
+	// Calculate padding to right-align status (use actual terminal width)
+	totalWidth := width
+	if totalWidth <= 0 {
+		totalWidth = 110 // fallback
+	}
 	leftWidth := lipgloss.Width(leftContent)
 	statusWidth := lipgloss.Width(statusIndicator)
 	padding := totalWidth - leftWidth - statusWidth
@@ -78,26 +81,27 @@ func (r *Renderer) RenderRepository(repo repository.Repository, isSelected bool,
 		padding = 1
 	}
 
-	// Format: cursor icon name branch [padding] status
-	line := leftContent + strings.Repeat(" ", padding) + statusIndicator
+	// Format: cursor icon name branch [padding] status cursorIndicator
+	line := leftContent + strings.Repeat(" ", padding) + statusIndicator + " " + cursorIndicator
 	content := style.Render(line)
 
 	// If this is a bare repository, add its worktrees to the content
 	if repo.IsBare {
-		worktreeContent := r.renderWorktrees(repo)
+		// For backward compatibility, create a git checker for this old API
+		gitChecker := git.NewChecker()
+		worktreeContent := r.renderWorktrees(repo, width, gitChecker)
 		if worktreeContent != "" {
 			content += "\n" + worktreeContent
 		}
 	}
 
-	// Wrap all content in border
-	borderedContent := r.styles.Border.Render(content)
-	return borderedContent + "\n"
+	// No border - return content directly
+	return content + "\n"
 }
 
 // RenderRepositoryOnly renders just the repository without worktrees
 // Use this when worktrees are rendered separately as navigable items
-func (r *Renderer) RenderRepositoryOnly(repo repository.Repository, isSelected bool, cursorIndicator string) string {
+func (r *Renderer) RenderRepositoryOnly(repo repository.Repository, isSelected bool, cursorIndicator string, width int) string {
 	style := r.getItemStyle(isSelected)
 	statusIndicator := r.getStatusIndicator(repo)
 
@@ -124,8 +128,11 @@ func (r *Renderer) RenderRepositoryOnly(repo repository.Repository, isSelected b
 	// Create the main content without status (for left alignment)
 	leftContent := fmt.Sprintf("%s %s %s%s", cursorIndicator, icon, repo.Name, branchInfo)
 
-	// Calculate padding to right-align status (assuming 110 char width to account for border)
-	totalWidth := 110
+	// Calculate padding to right-align status (use actual terminal width)
+	totalWidth := width
+	if totalWidth <= 0 {
+		totalWidth = 110 // fallback
+	}
 	leftWidth := lipgloss.Width(leftContent)
 	statusWidth := lipgloss.Width(statusIndicator)
 	padding := totalWidth - leftWidth - statusWidth
@@ -133,8 +140,8 @@ func (r *Renderer) RenderRepositoryOnly(repo repository.Repository, isSelected b
 		padding = 1
 	}
 
-	// Format: cursor icon name branch [padding] status
-	line := leftContent + strings.Repeat(" ", padding) + statusIndicator
+	// Format: cursor icon name branch [padding] status cursorIndicator
+	line := leftContent + strings.Repeat(" ", padding) + statusIndicator + " " + cursorIndicator
 	content := style.Render(line)
 
 	// Don't wrap bare repositories in border - they will be grouped with their worktrees
@@ -142,15 +149,14 @@ func (r *Renderer) RenderRepositoryOnly(repo repository.Repository, isSelected b
 		return content
 	}
 
-	// Wrap content in border for regular repositories
-	borderedContent := r.styles.Border.Render(content)
-	return borderedContent
+	// No border for regular repositories either
+	return content
 }
 
 // RenderWorktree renders a single worktree item (without border - used in navigable mode)
-func (r *Renderer) RenderWorktree(wt git.WorktreeInfo, parentName, bareRepoPath string, isSelected bool, cursorIndicator string, isLast bool) string {
+func (r *Renderer) RenderWorktree(wt git.WorktreeInfo, parentName, bareRepoPath string, isSelected bool, cursorIndicator string, isLast bool, width int, gitChecker git.StatusChecker) string {
 	style := r.getItemStyle(isSelected)
-	status := r.getWorktreeStatusIndicators(wt.Path)
+	status := r.getWorktreeStatusIndicators(wt.Path, gitChecker)
 
 	// Use relative path in the name instead of separate path line
 	relativePath := r.getRelativePathToBareRepo(wt.Path, bareRepoPath)
@@ -167,17 +173,21 @@ func (r *Renderer) RenderWorktree(wt git.WorktreeInfo, parentName, bareRepoPath 
 	// Create the main content without status (for left alignment)
 	leftContent := fmt.Sprintf("%s %s 🌳 %s%s", cursorIndicator, treeIcon, relativePath, branchInfo)
 
-	// Calculate padding to right-align status (assuming 110 char width to account for border)
-	totalWidth := 110
+	// Calculate padding to right-align status (use actual terminal width)
+	totalWidth := width
+	if totalWidth <= 0 {
+		totalWidth = 140 // fallback
+	}
 	leftWidth := lipgloss.Width(leftContent)
 	statusWidth := lipgloss.Width(status)
-	padding := totalWidth - leftWidth - statusWidth
+	cursorWidth := lipgloss.Width(cursorIndicator)
+	padding := totalWidth - leftWidth - statusWidth - cursorWidth - 1 // -1 for space
 	if padding < 1 {
 		padding = 1
 	}
 
-	// Format: cursor treeIcon 🌳 path branch [padding] status
-	line := leftContent + strings.Repeat(" ", padding) + status
+	// Format: cursor treeIcon 🌳 path branch [padding] status cursorIndicator
+	line := leftContent + strings.Repeat(" ", padding) + status + " " + cursorIndicator
 	content := style.Render(line)
 
 	// Don't wrap in border - this makes worktrees appear as part of parent repo
@@ -201,7 +211,7 @@ func (r *Renderer) getStatusIndicator(repo repository.Repository) string {
 
 	// Don't show status icons for bare repos - they'll be shown on worktrees
 	if repo.IsBare {
-		return "📁"
+		return ""
 	}
 
 	if repo.IsWorktree {
@@ -227,8 +237,7 @@ func (r *Renderer) getStatusIndicator(repo repository.Repository) string {
 	return strings.Join(indicators, " ")
 }
 
-func (r *Renderer) renderWorktrees(repo repository.Repository) string {
-	gitChecker := git.NewChecker()
+func (r *Renderer) renderWorktrees(repo repository.Repository, width int, gitChecker git.StatusChecker) string {
 	worktrees, err := gitChecker.ListWorktrees(repo.Path)
 	if err != nil {
 		return ""
@@ -246,15 +255,15 @@ func (r *Renderer) renderWorktrees(repo repository.Repository) string {
 	var worktreeLines []string
 	for i, wt := range validWorktrees {
 		isLast := i == len(validWorktrees)-1
-		worktreeLines = append(worktreeLines, r.renderWorktreeItem(wt, repo.Name, repo.Path, isLast))
+		worktreeLines = append(worktreeLines, r.renderWorktreeItem(wt, repo.Name, repo.Path, isLast, width, gitChecker))
 	}
 
 	return strings.Join(worktreeLines, "\n")
 }
 
-func (r *Renderer) renderWorktreeItem(wt git.WorktreeInfo, repoName string, bareRepoPath string, isLast bool) string {
+func (r *Renderer) renderWorktreeItem(wt git.WorktreeInfo, repoName string, bareRepoPath string, isLast bool, width int, gitChecker git.StatusChecker) string {
 	// Create worktree status
-	status := r.getWorktreeStatusIndicators(wt.Path)
+	status := r.getWorktreeStatusIndicators(wt.Path, gitChecker)
 
 	// Use relative path in the name instead of separate path line
 	relativePath := r.getRelativePathToBareRepo(wt.Path, bareRepoPath)
@@ -268,11 +277,14 @@ func (r *Renderer) renderWorktreeItem(wt git.WorktreeInfo, repoName string, bare
 		treeIcon = "├─"
 	}
 
-	// Create the main content without status (for left alignment)
-	leftContent := fmt.Sprintf("   %s 🌳 %s%s", treeIcon, relativePath, branchInfo)
+	// Create the main content without status (for left alignment) - increased indentation
+	leftContent := fmt.Sprintf("     %s 🌳 %s%s", treeIcon, relativePath, branchInfo)
 
-	// Calculate padding to right-align status (assuming 110 char width to account for border)
-	totalWidth := 110
+	// Calculate padding to right-align status (use actual terminal width)
+	totalWidth := width
+	if totalWidth <= 0 {
+		totalWidth = 140 // fallback
+	}
 	leftWidth := lipgloss.Width(leftContent)
 	statusWidth := lipgloss.Width(status)
 	padding := totalWidth - leftWidth - statusWidth
@@ -295,9 +307,7 @@ func (r *Renderer) getRelativePathToBareRepo(worktreePath, bareRepoPath string) 
 	return worktreePath
 }
 
-func (r *Renderer) getWorktreeStatusIndicators(path string) string {
-	gitChecker := git.NewChecker()
-
+func (r *Renderer) getWorktreeStatusIndicators(path string, gitChecker git.StatusChecker) string {
 	if !gitChecker.IsGitRepository(path) {
 		return r.styles.StatusError.Render(r.theme.Indicators.Error)
 	}

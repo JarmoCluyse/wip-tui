@@ -31,13 +31,14 @@ func CreateInitialModel(deps Dependencies) Model {
 	}
 
 	return Model{
-		Dependencies:   deps,
-		Config:         cfg,
-		RepoHandler:    repoHandler,
-		State:          ListView,
-		Cursor:         0,
-		ExplorerPath:   homeDir,
-		ExplorerCursor: 0,
+		Dependencies:     deps,
+		Config:           cfg,
+		RepoHandler:      repoHandler,
+		State:            ListView,
+		Cursor:           0,
+		ExplorerPath:     homeDir,
+		ExplorerCursor:   0,
+		NavItemsNeedSync: true, // Initialize cache as needing sync
 	}
 }
 
@@ -118,6 +119,9 @@ func (m Model) handleStatusUpdate(msg StatusMessage) (tea.Model, tea.Cmd) {
 			repos[i] = repo
 		}
 	}
+
+	// Mark navigable items cache as needing sync
+	m.NavItemsNeedSync = true
 
 	return m, nil
 }
@@ -248,7 +252,7 @@ func (m Model) moveCursorUp() Model {
 }
 
 func (m Model) moveCursorDown() Model {
-	navigableItems := m.buildNavigableItems()
+	navigableItems := m.getNavigableItems()
 	if m.Cursor < len(navigableItems)-1 {
 		m.Cursor++
 		// Update scroll offset if needed
@@ -263,14 +267,14 @@ func (m Model) moveCursorDown() Model {
 // Calculate how many items can be visible based on terminal height
 func (m Model) getVisibleItemCount() int {
 	// Reserve space for header, help text, and some padding
-	// Each repository item takes approximately 3 lines (with border)
+	// Each repository item now takes approximately 1 line (without border)
 	availableHeight := m.Height - 6 // Reserve space for header and help
 	if availableHeight < 3 {
 		availableHeight = 15 // Fallback minimum for reasonable viewing
 	}
-	itemsPerScreen := availableHeight / 3 // Each bordered item takes ~3 lines
-	if itemsPerScreen < 3 {
-		itemsPerScreen = 5 // Minimum reasonable number of items
+	itemsPerScreen := availableHeight // Each borderless item takes ~1 line
+	if itemsPerScreen < 5 {
+		itemsPerScreen = 10 // Minimum reasonable number of items
 	}
 	return itemsPerScreen
 }
@@ -309,6 +313,7 @@ func (m Model) addRepository() (Model, tea.Cmd) {
 		m.Config.RepositoryPaths = m.RepoHandler.GetPaths()
 		m.Dependencies.GetConfigService().Save(m.Config)
 		m.State = ListView
+		m.NavItemsNeedSync = true // Cache needs update
 		return m, m.updateRepositoryStatuses()
 	}
 	return m, nil
@@ -384,6 +389,8 @@ func (m Model) toggleRepositorySelection() (Model, tea.Cmd) {
 		m.RepoHandler.AddRepository(name, selected.Path)
 	}
 
+	m.NavItemsNeedSync = true // Cache needs update after adding/removing
+
 	repositories = m.RepoHandler.GetRepositories()
 	logging.Get().Debug("after operation", "repos_count", len(repositories))
 	for i, repo := range repositories {
@@ -404,10 +411,11 @@ func (m Model) toggleRepositorySelection() (Model, tea.Cmd) {
 
 func (m Model) removeRepositoryByPath(path string) {
 	m.RepoHandler.RemoveRepositoryByPath(path)
+	m.NavItemsNeedSync = true // Cache needs update after removing
 }
 
 func (m Model) navigateToSelected() (Model, tea.Cmd) {
-	navigableItems := m.buildNavigableItems()
+	navigableItems := m.getNavigableItems()
 	if m.Cursor >= len(navigableItems) {
 		return m, nil
 	}
@@ -432,7 +440,7 @@ func (m Model) navigateToSelected() (Model, tea.Cmd) {
 }
 
 func (m Model) discoverWorktrees() (Model, tea.Cmd) {
-	navigableItems := m.buildNavigableItems()
+	navigableItems := m.getNavigableItems()
 	if m.Cursor >= len(navigableItems) {
 		return m, nil
 	}
@@ -465,11 +473,12 @@ func (m Model) discoverWorktrees() (Model, tea.Cmd) {
 
 	m.Config.RepositoryPaths = m.RepoHandler.GetPaths()
 	m.Dependencies.GetConfigService().Save(m.Config)
+	m.NavItemsNeedSync = true // Cache needs update after adding worktrees
 	return m, m.updateRepositoryStatuses()
 }
 
 func (m Model) deleteSelectedRepository() (Model, tea.Cmd) {
-	navigableItems := m.buildNavigableItems()
+	navigableItems := m.getNavigableItems()
 	if m.Cursor >= len(navigableItems) {
 		return m, nil
 	}
@@ -486,6 +495,7 @@ func (m Model) deleteSelectedRepository() (Model, tea.Cmd) {
 				m.Cursor = m.adjustCursorAfterDeletion()
 				m.Config.RepositoryPaths = m.RepoHandler.GetPaths()
 				m.Dependencies.GetConfigService().Save(m.Config)
+				m.NavItemsNeedSync = true // Cache needs update after deletion
 				break
 			}
 		}
@@ -495,7 +505,7 @@ func (m Model) deleteSelectedRepository() (Model, tea.Cmd) {
 }
 
 func (m Model) adjustCursorAfterDeletion() int {
-	navigableItems := m.buildNavigableItems()
+	navigableItems := m.getNavigableItems()
 	if m.Cursor >= len(navigableItems) && len(navigableItems) > 0 {
 		newCursor := len(navigableItems) - 1
 		// Adjust scroll offset if needed
@@ -511,7 +521,7 @@ func (m Model) adjustCursorAfterDeletion() int {
 }
 
 func (m Model) openInLazygit() (Model, tea.Cmd) {
-	navigableItems := m.buildNavigableItems()
+	navigableItems := m.getNavigableItems()
 	if m.Cursor >= len(navigableItems) {
 		return m, nil
 	}
@@ -575,9 +585,90 @@ func (m Model) openExplorerInLazygit() (Model, tea.Cmd) {
 	})
 }
 
+// getNavigableItems returns cached navigable items or rebuilds if needed
+func (m *Model) getNavigableItems() []NavigableItem {
+	if m.CachedNavItems == nil || m.NavItemsNeedSync {
+		m.rebuildNavigableItems()
+		m.NavItemsNeedSync = false
+	}
+	return m.CachedNavItems
+}
+
+// rebuildNavigableItems rebuilds the cached navigable items with concurrency
+func (m *Model) rebuildNavigableItems() {
+	repositories := m.RepoHandler.GetRepositories()
+	gitChecker := m.Dependencies.GetGitChecker()
+
+	// Use channels to collect results
+	type repoResult struct {
+		index int
+		items []NavigableItem
+	}
+
+	resultChan := make(chan repoResult, len(repositories))
+	semaphore := make(chan struct{}, 8) // Limit to 8 concurrent operations
+
+	// Process each repository concurrently
+	for i := range repositories {
+		go func(idx int, repo *repository.Repository) {
+			semaphore <- struct{}{}        // Acquire semaphore
+			defer func() { <-semaphore }() // Release semaphore
+
+			var repoItems []NavigableItem
+
+			// Add the repository itself
+			repoItems = append(repoItems, NavigableItem{
+				Type:       "repository",
+				Repository: repo,
+			})
+
+			// If it's a bare repo, add its worktrees
+			if repo.IsBare {
+				worktrees, err := gitChecker.ListWorktrees(repo.Path)
+				if err == nil {
+					var validWorktrees []git.WorktreeInfo
+					for _, wt := range worktrees {
+						if !wt.Bare && wt.Path != repo.Path {
+							validWorktrees = append(validWorktrees, wt)
+						}
+					}
+
+					// Add worktrees with proper IsLast flag
+					for j, wt := range validWorktrees {
+						isLast := j == len(validWorktrees)-1
+						repoItems = append(repoItems, NavigableItem{
+							Type:         "worktree",
+							WorktreeInfo: &wt,
+							ParentRepo:   repo,
+							IsLast:       isLast,
+						})
+					}
+				}
+			}
+
+			resultChan <- repoResult{index: idx, items: repoItems}
+		}(i, &repositories[i])
+	}
+
+	// Collect results and maintain order
+	results := make([][]NavigableItem, len(repositories))
+	for i := 0; i < len(repositories); i++ {
+		result := <-resultChan
+		results[result.index] = result.items
+	}
+
+	// Flatten results in correct order
+	var items []NavigableItem
+	for _, repoItems := range results {
+		items = append(items, repoItems...)
+	}
+
+	m.CachedNavItems = items
+}
+
 func (m Model) buildNavigableItems() []NavigableItem {
 	var items []NavigableItem
-	gitChecker := git.NewChecker()
+	gitChecker := m.Dependencies.GetGitChecker() // Use the cached git checker instead of creating new
 	repositories := m.RepoHandler.GetRepositories()
 
 	for i := range repositories {
@@ -671,7 +762,10 @@ func (m Model) renderListView() string {
 	// Adjust cursor to be relative to visible window
 	relativeCursor := m.Cursor - m.ScrollOffset
 
-	return renderer.RenderNavigable(visibleItems, relativeCursor, m.Width, m.Height)
+	// Get the cached git checker
+	gitChecker := m.Dependencies.GetGitChecker()
+
+	return renderer.RenderNavigable(visibleItems, relativeCursor, m.Width, m.Height, gitChecker)
 }
 
 func (m Model) renderAddRepoView() string {
