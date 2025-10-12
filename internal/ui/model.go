@@ -91,10 +91,8 @@ type StyleConfig struct {
 // CreateStyleConfig creates a new StyleConfig using the provided theme configuration.
 func CreateStyleConfig(themeConfig theme.Theme) StyleConfig {
 	return StyleConfig{
-		Item: lipgloss.NewStyle().
-			PaddingLeft(2),
+		Item: lipgloss.NewStyle(),
 		SelectedItem: lipgloss.NewStyle().
-			PaddingLeft(2).
 			Foreground(lipgloss.Color(themeConfig.Colors.Selected)).
 			Bold(true),
 		StatusUncommitted: lipgloss.NewStyle().

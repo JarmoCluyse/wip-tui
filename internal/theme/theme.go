@@ -10,32 +10,35 @@ type Theme struct {
 
 // Colors defines all color values used in the UI.
 type Colors struct {
-	Title           string `toml:"title"`
-	TitleBackground string `toml:"title_background"`
-	Selected        string `toml:"selected"`
-	StatusClean     string `toml:"status_clean"`
-	StatusDirty     string `toml:"status_dirty"`
-	StatusUnpushed  string `toml:"status_unpushed"`
-	StatusUntracked string `toml:"status_untracked"`
-	StatusError     string `toml:"status_error"`
-	StatusNotAdded  string `toml:"status_not_added"`
-	Help            string `toml:"help"`
-	Border          string `toml:"border"`
-	ModalBackground string `toml:"modal_background"`
-	Branch          string `toml:"branch"`
-	IconRegular     string `toml:"icon_regular"`
-	IconBare        string `toml:"icon_bare"`
-	IconWorktree    string `toml:"icon_worktree"`
+	Title              string `toml:"title"`
+	TitleBackground    string `toml:"title_background"`
+	Selected           string `toml:"selected"`
+	SelectedBackground string `toml:"selected_background"`
+	StatusClean        string `toml:"status_clean"`
+	StatusDirty        string `toml:"status_dirty"`
+	StatusUnpushed     string `toml:"status_unpushed"`
+	StatusUntracked    string `toml:"status_untracked"`
+	StatusError        string `toml:"status_error"`
+	StatusNotAdded     string `toml:"status_not_added"`
+	Help               string `toml:"help"`
+	Border             string `toml:"border"`
+	ModalBackground    string `toml:"modal_background"`
+	Branch             string `toml:"branch"`
+	IconRegular        string `toml:"icon_regular"`
+	IconBare           string `toml:"icon_bare"`
+	IconWorktree       string `toml:"icon_worktree"`
 }
 
 // Indicators defines all status indicator symbols.
 type Indicators struct {
-	Clean     string `toml:"clean"`
-	Dirty     string `toml:"dirty"`
-	Unpushed  string `toml:"unpushed"`
-	Untracked string `toml:"untracked"`
-	Error     string `toml:"error"`
-	NotAdded  string `toml:"not_added"`
+	Clean       string `toml:"clean"`
+	Dirty       string `toml:"dirty"`
+	Unpushed    string `toml:"unpushed"`
+	Untracked   string `toml:"untracked"`
+	Error       string `toml:"error"`
+	NotAdded    string `toml:"not_added"`
+	Selected    string `toml:"selected"`
+	SelectedEnd string `toml:"selected_end"`
 }
 
 // Icons defines all icon symbols used in the UI.
@@ -61,30 +64,33 @@ type Icons struct {
 func Default() Theme {
 	return Theme{
 		Colors: Colors{
-			Title:           "#FAFAFA",
-			TitleBackground: "#7D56F4",
-			Selected:        "#7D56F4",
-			StatusClean:     "#6BCF7F",
-			StatusDirty:     "#FF6B6B",
-			StatusUnpushed:  "#FFD93D",
-			StatusUntracked: "#FFA500",
-			StatusError:     "#FF0000",
-			StatusNotAdded:  "#626262",
-			Help:            "#626262",
-			Border:          "#7D56F4",
-			ModalBackground: "#1E1E1E",
-			Branch:          "#00D4AA",
-			IconRegular:     "#4A9EFF",
-			IconBare:        "#FFA500",
-			IconWorktree:    "#32CD32",
+			Title:              "#FAFAFA",
+			TitleBackground:    "#7D56F4",
+			Selected:           "#7D56F4",
+			SelectedBackground: "#7D56F4FF",
+			StatusClean:        "#6BCF7F",
+			StatusDirty:        "#FF6B6B",
+			StatusUnpushed:     "#FFD93D",
+			StatusUntracked:    "#FFA500",
+			StatusError:        "#FF0000",
+			StatusNotAdded:     "#626262",
+			Help:               "#626262",
+			Border:             "#7D56F4",
+			ModalBackground:    "#1E1E1E",
+			Branch:             "#00D4AA",
+			IconRegular:        "#4A9EFF",
+			IconBare:           "#FFA500",
+			IconWorktree:       "#32CD32",
 		},
 		Indicators: Indicators{
-			Clean:     "󰄬 ",
-			Dirty:     "󰏫 ",
-			Unpushed:  "󰕒 ",
-			Untracked: "󰈔 ",
-			Error:     " ",
-			NotAdded:  "󰝒 ",
+			Clean:       "󰄬 ",
+			Dirty:       "󰏫 ",
+			Unpushed:    "󰕒 ",
+			Untracked:   "󰈔 ",
+			Error:       " ",
+			NotAdded:    "󰝒 ",
+			Selected:    "󰒊 ",
+			SelectedEnd: "▌",
 		},
 		Icons: Icons{
 			Repository: struct {
@@ -130,6 +136,9 @@ func MergeWithDefault(userTheme Theme) Theme {
 	}
 	if userTheme.Colors.Selected == "" {
 		userTheme.Colors.Selected = defaultTheme.Colors.Selected
+	}
+	if userTheme.Colors.SelectedBackground == "" {
+		userTheme.Colors.SelectedBackground = defaultTheme.Colors.SelectedBackground
 	}
 	if userTheme.Colors.StatusClean == "" {
 		userTheme.Colors.StatusClean = defaultTheme.Colors.StatusClean
@@ -189,6 +198,12 @@ func MergeWithDefault(userTheme Theme) Theme {
 	}
 	if userTheme.Indicators.NotAdded == "" {
 		userTheme.Indicators.NotAdded = defaultTheme.Indicators.NotAdded
+	}
+	if userTheme.Indicators.Selected == "" {
+		userTheme.Indicators.Selected = defaultTheme.Indicators.Selected
+	}
+	if userTheme.Indicators.SelectedEnd == "" {
+		userTheme.Indicators.SelectedEnd = defaultTheme.Indicators.SelectedEnd
 	}
 
 	// Merge icons

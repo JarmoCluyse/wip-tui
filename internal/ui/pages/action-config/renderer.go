@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/jarmocluyse/wip-tui/internal/config"
 	"github.com/jarmocluyse/wip-tui/internal/theme"
 	"github.com/jarmocluyse/wip-tui/internal/ui/components/help"
@@ -114,14 +115,20 @@ func (r *Renderer) renderActionList(actions []config.Action, cursor int, width i
 // renderActionItem renders a single action item
 func (r *Renderer) renderActionItem(action config.Action, index, cursor int, width int) string {
 	isSelected := index == cursor
-	cursorIndicator := r.getCursorIndicator(isSelected)
 
 	var style = r.styles.Item
 	if isSelected {
 		style = r.styles.SelectedItem
 	}
 
-	// Format: "> [key] name - description"
+	// Format: "[key] name - description"
+	var frontIndicator string
+	if isSelected {
+		frontIndicator = r.theme.Indicators.Selected
+	} else {
+		frontIndicator = strings.Repeat(" ", lipgloss.Width(r.theme.Indicators.Selected))
+	}
+
 	keyPart := r.styles.ActionKey.Render(fmt.Sprintf("[%s]", action.Key))
 	namePart := action.Name
 	descPart := ""
@@ -129,10 +136,46 @@ func (r *Renderer) renderActionItem(action config.Action, index, cursor int, wid
 		descPart = " - " + r.styles.ActionDesc.Render(action.Description)
 	}
 
-	actionLine := fmt.Sprintf("%s %s %s%s", cursorIndicator, keyPart, namePart, descPart)
+	actionLine := fmt.Sprintf(" %s%s %s%s", frontIndicator, keyPart, namePart, descPart)
+
+	// Calculate padding to right-align the end indicator with proper width constraints
+	actionWidth := len(actionLine) // Use basic length for action content
+
+	// Always reserve space for end indicator and spacing, even when not selected
+	endIndicatorWidth := len(r.theme.Indicators.SelectedEnd)
+	spacingWidth := 1 // One space before end indicator
+	reservedEndWidth := endIndicatorWidth + spacingWidth
+
+	// Ensure we don't exceed the terminal width - leave some margin
+	maxContentWidth := width - 2 // margin for safety
+	requiredWidth := actionWidth + reservedEndWidth
+
+	var padding int
+	if requiredWidth >= maxContentWidth {
+		// Content too wide, use minimal spacing
+		padding = 1
+	} else {
+		padding = maxContentWidth - actionWidth - reservedEndWidth
+	}
+
+	if padding < 0 {
+		padding = 0
+	}
+
+	// Always add the reserved space, but only show the indicator when selected
+	var endIndicator string
+	if isSelected {
+		styledEndIndicator := lipgloss.NewStyle().Foreground(lipgloss.Color(r.theme.Colors.Selected)).Render(r.theme.Indicators.SelectedEnd)
+		endIndicator = " " + styledEndIndicator
+	} else {
+		// Reserve the space with spaces to prevent layout shift
+		endIndicator = strings.Repeat(" ", endIndicatorWidth+1)
+	}
+
+	actionLine = actionLine + strings.Repeat(" ", padding) + endIndicator
 
 	// Show command on second line
-	commandLine := fmt.Sprintf("    %s", r.styles.ActionCommand.Render(r.formatCommand(action)))
+	commandLine := fmt.Sprintf("   %s", r.styles.ActionCommand.Render(r.formatCommand(action)))
 
 	content := style.Render(actionLine) + "\n"
 	content += style.Render(commandLine) + "\n"
@@ -146,12 +189,4 @@ func (r *Renderer) formatCommand(action config.Action) string {
 		return action.Command
 	}
 	return fmt.Sprintf("%s %s", action.Command, strings.Join(action.Args, " "))
-}
-
-// getCursorIndicator returns the appropriate cursor indicator
-func (r *Renderer) getCursorIndicator(isSelected bool) string {
-	if isSelected {
-		return ">"
-	}
-	return " "
 }

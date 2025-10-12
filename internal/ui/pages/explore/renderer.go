@@ -58,11 +58,17 @@ func (r *Renderer) renderItemList(items []Item, cursor int) string {
 	return content
 }
 
-// renderItem renders a single item with cursor indication and selection state.
+// renderItem renders a single item with selection state.
 func (r *Renderer) renderItem(item Item, index, cursor int) string {
 	isSelected := index == cursor
-	cursorIndicator := r.getCursorIndicator(isSelected)
 	style := r.getItemStyle(isSelected)
+
+	var frontIndicator string
+	if isSelected {
+		frontIndicator = r.theme.Indicators.Selected
+	} else {
+		frontIndicator = strings.Repeat(" ", lipgloss.Width(r.theme.Indicators.Selected))
+	}
 
 	icon := r.getItemIcon(item)
 
@@ -76,38 +82,24 @@ func (r *Renderer) renderItem(item Item, index, cursor int) string {
 
 	status := r.getItemStatus(item)
 
-	// Create left content
-	leftContent := fmt.Sprintf("%s %s%s", cursorIndicator, icon, displayName)
+	// Create left content with consistent spacing
+	leftContent := fmt.Sprintf(" %s%s%s", frontIndicator, icon, displayName)
 	if status != "" {
 		leftContent += " " + status
 	}
 
-	// Create end-of-line selection indicator
-	var endIndicator string
+	// Always reserve space for end indicator and spacing to prevent layout shift
 	if isSelected {
-		endIndicator = r.styles.SelectedItem.Render("█")
+		styledEndIndicator := lipgloss.NewStyle().Foreground(lipgloss.Color(r.theme.Colors.Selected)).Render(r.theme.Indicators.SelectedEnd)
+		leftContent += " " + styledEndIndicator // One space before indicator
 	} else {
-		endIndicator = " "
+		// Reserve the space with spaces to prevent layout shift
+		endIndicatorWidth := len(r.theme.Indicators.SelectedEnd)
+		leftContent += strings.Repeat(" ", 1+endIndicatorWidth) // Same total width
 	}
 
-	// Calculate padding to right-align the end indicator (approximation, no width available)
-	totalWidth := 120 // fallback width
-	leftWidth := lipgloss.Width(leftContent)
-	endIndicatorWidth := lipgloss.Width(endIndicator)
-	padding := max(totalWidth-leftWidth-endIndicatorWidth-1, 1)
-
-	line := leftContent + strings.Repeat(" ", padding) + endIndicator
-
-	content := style.Render(line) + "\n"
+	content := style.Render(leftContent) + "\n"
 	return content
-}
-
-// getCursorIndicator returns the cursor indicator based on selection state.
-func (r *Renderer) getCursorIndicator(isSelected bool) string {
-	if isSelected {
-		return ">"
-	}
-	return " "
 }
 
 // getItemStyle returns the appropriate style based on selection state.

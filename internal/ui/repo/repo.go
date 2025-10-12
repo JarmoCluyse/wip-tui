@@ -64,7 +64,7 @@ func NewRenderer(styles StyleConfig, themeConfig theme.Theme) *Renderer {
 }
 
 // RenderItem renders any type of item (repository or worktree) with consistent formatting
-func (r *Renderer) RenderItem(item RenderableItem, isSelected bool, cursorIndicator string, width int, gitChecker git.StatusChecker) string {
+func (r *Renderer) RenderItem(item RenderableItem, isSelected bool, width int, gitChecker git.StatusChecker) string {
 	style := r.getItemStyle(isSelected)
 
 	var iconRendered, name, branchInfo, status, treePrefix string
@@ -141,10 +141,17 @@ func (r *Renderer) RenderItem(item RenderableItem, isSelected bool, cursorIndica
 		}
 	}
 
-	// Create the main content without status (for left alignment)
-	leftContent := fmt.Sprintf("%s %s%s %s%s", cursorIndicator, treePrefix, iconRendered, name, branchInfo)
+	// Create the main content with consistent spacing
+	var frontIndicator string
+	if isSelected {
+		frontIndicator = r.theme.Indicators.Selected
+	} else {
+		frontIndicator = strings.Repeat(" ", lipgloss.Width(r.theme.Indicators.Selected))
+	}
 
-	// Calculate padding to right-align status
+	leftContent := fmt.Sprintf(" %s%s%s %s%s", frontIndicator, treePrefix, iconRendered, name, branchInfo)
+
+	// Calculate padding to right-align status, always reserving space for end indicator
 	totalWidth := width
 	if totalWidth <= 0 {
 		totalWidth = 140 // fallback
@@ -152,22 +159,42 @@ func (r *Renderer) RenderItem(item RenderableItem, isSelected bool, cursorIndica
 	leftWidth := lipgloss.Width(leftContent)
 	statusWidth := lipgloss.Width(status)
 
-	// Create end-of-line selection indicator
-	var endIndicator string
-	if isSelected {
-		endIndicator = r.styles.SelectedItem.Render("█")
+	// Always reserve space for end indicator and spacing, even when not selected
+	endIndicatorWidth := lipgloss.Width(r.theme.Indicators.SelectedEnd)
+	spacingWidth := 1 // One space before end indicator
+	reservedEndWidth := endIndicatorWidth + spacingWidth
+
+	// Ensure we don't exceed the terminal width - leave some margin
+	maxContentWidth := totalWidth - 2 // margin for safety
+	requiredWidth := leftWidth + statusWidth + reservedEndWidth
+
+	var padding int
+	if requiredWidth >= maxContentWidth {
+		// Content too wide, use minimal spacing
+		padding = 1
 	} else {
-		endIndicator = " "
+		padding = maxContentWidth - leftWidth - statusWidth - reservedEndWidth
 	}
 
-	endIndicatorWidth := lipgloss.Width(endIndicator)
-	padding := max(totalWidth-leftWidth-statusWidth-endIndicatorWidth-1, 1)
+	if padding < 1 {
+		padding = 1
+	}
+
+	// Always add the reserved space, but only show the indicator when selected
+	var endIndicator string
+	if isSelected {
+		styledEndIndicator := lipgloss.NewStyle().Foreground(lipgloss.Color(r.theme.Colors.Selected)).Render(r.theme.Indicators.SelectedEnd)
+		endIndicator = " " + styledEndIndicator
+	} else {
+		// Reserve the space with spaces to prevent layout shift
+		endIndicator = strings.Repeat(" ", endIndicatorWidth+1)
+	}
 
 	line := leftContent + strings.Repeat(" ", padding) + status + endIndicator
 	return style.Render(line) + "\n"
 }
 
-// RenderRepository renders a repository item with cursor indication and selection
+// RenderRepository renders a repository item with selection
 // This is the old method that includes worktrees - kept for backward compatibility
 func (r *Renderer) RenderRepository(repo repository.Repository, isSelected bool, cursorIndicator string, width int) string {
 	item := RenderableItem{
@@ -175,7 +202,7 @@ func (r *Renderer) RenderRepository(repo repository.Repository, isSelected bool,
 		Repository: &repo,
 	}
 
-	result := r.RenderItem(item, isSelected, cursorIndicator, width, nil)
+	result := r.RenderItem(item, isSelected, width, nil)
 
 	// If this is a bare repository, add its worktrees to the content
 	if repo.IsBare {
@@ -202,7 +229,7 @@ func (r *Renderer) RenderRepositoryOnly(repo repository.Repository, isSelected b
 	}
 
 	// Use the unified renderer and remove the trailing newline
-	result := r.RenderItem(item, isSelected, cursorIndicator, width, nil)
+	result := r.RenderItem(item, isSelected, width, nil)
 	return strings.TrimSuffix(result, "\n")
 }
 
@@ -217,7 +244,7 @@ func (r *Renderer) RenderWorktree(wt git.WorktreeInfo, parentName, bareRepoPath 
 	}
 
 	// Remove the trailing newline since the unified function adds it
-	result := r.RenderItem(item, isSelected, cursorIndicator, width, gitChecker)
+	result := r.RenderItem(item, isSelected, width, gitChecker)
 	return strings.TrimSuffix(result, "\n")
 }
 

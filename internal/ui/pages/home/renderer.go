@@ -133,18 +133,17 @@ func (r *Renderer) renderNavigableItemList(items []types.NavigableItem, cursor i
 	return content
 }
 
-// renderNavigableItem renders a single navigable item with cursor indication.
+// renderNavigableItem renders a single navigable item.
 func (r *Renderer) renderNavigableItem(item types.NavigableItem, index, cursor int, width int, gitChecker git.StatusChecker) string {
 	isSelected := index == cursor
-	cursorIndicator := r.getCursorIndicator(isSelected)
 
 	switch item.Type {
 	case "repository":
-		return r.repo.RenderRepositoryOnly(*item.Repository, isSelected, cursorIndicator, width)
+		return r.repo.RenderRepositoryOnly(*item.Repository, isSelected, "", width)
 	case "worktree":
 		wt := item.WorktreeInfo
 		parentName := item.ParentRepo.Name
-		return r.repo.RenderWorktree(*wt, parentName, item.ParentRepo.Path, isSelected, cursorIndicator, item.IsLast, width, gitChecker)
+		return r.repo.RenderWorktree(*wt, parentName, item.ParentRepo.Path, isSelected, "", item.IsLast, width, gitChecker)
 	default:
 		return ""
 	}
@@ -164,19 +163,10 @@ func (r *Renderer) renderRepositoryList(repositories []repository.Repository, cu
 	return content
 }
 
-// renderRepositoryItem renders a single repository item with cursor indication.
+// renderRepositoryItem renders a single repository item.
 func (r *Renderer) renderRepositoryItem(repo repository.Repository, index, cursor int, width int) string {
 	isSelected := index == cursor
-	cursorIndicator := r.getCursorIndicator(isSelected)
-	return r.repo.RenderRepository(repo, isSelected, cursorIndicator, width)
-}
-
-// getCursorIndicator returns the cursor indicator based on selection state.
-func (r *Renderer) getCursorIndicator(isSelected bool) string {
-	if isSelected {
-		return ">"
-	}
-	return " "
+	return r.repo.RenderRepository(repo, isSelected, "", width)
 }
 
 // renderHelp renders the help section with available actions.

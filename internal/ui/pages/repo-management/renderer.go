@@ -2,7 +2,9 @@ package repomanagement
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/jarmocluyse/wip-tui/internal/repository"
 	"github.com/jarmocluyse/wip-tui/internal/theme"
 	"github.com/jarmocluyse/wip-tui/internal/ui/components/help"
@@ -57,31 +59,65 @@ func (r *Renderer) renderRepositoryList(repositories []repository.Repository, cu
 
 	for i, repo := range repositories {
 		isSelected := i == cursor
-		cursorIndicator := r.getCursorIndicator(isSelected)
 
 		var style = r.styles.Item
 		if isSelected {
 			style = r.styles.SelectedItem
 		}
 
-		repoLine := fmt.Sprintf("%s %s", cursorIndicator, repo.Name)
+		var frontIndicator string
+		if isSelected {
+			frontIndicator = r.theme.Indicators.Selected
+		} else {
+			frontIndicator = strings.Repeat(" ", lipgloss.Width(r.theme.Indicators.Selected))
+		}
+
+		repoLine := fmt.Sprintf(" %s%s", frontIndicator, repo.Name)
 		if repo.Path != repo.Name {
 			repoLine += fmt.Sprintf(" (%s)", repo.Path)
 		}
+
+		// Calculate padding to right-align the end indicator with proper width constraints
+		repoLineWidth := len(repoLine)
+
+		// Always reserve space for end indicator and spacing, even when not selected
+		endIndicatorWidth := len(r.theme.Indicators.SelectedEnd)
+		spacingWidth := 1 // One space before end indicator
+		reservedEndWidth := endIndicatorWidth + spacingWidth
+
+		// Ensure we don't exceed the terminal width - leave some margin
+		maxContentWidth := width - 2 // margin for safety
+		requiredWidth := repoLineWidth + reservedEndWidth
+
+		var padding int
+		if requiredWidth >= maxContentWidth {
+			// Content too wide, use minimal spacing
+			padding = 1
+		} else {
+			padding = maxContentWidth - repoLineWidth - reservedEndWidth
+		}
+
+		if padding < 0 {
+			padding = 0
+		}
+
+		// Always add the reserved space, but only show the indicator when selected
+		endIndicator := "" // Start empty
+		if isSelected {
+			styledEndIndicator := lipgloss.NewStyle().Foreground(lipgloss.Color(r.theme.Colors.Selected)).Render(r.theme.Indicators.SelectedEnd)
+			endIndicator += " " + styledEndIndicator
+		} else {
+			// Reserve the space with spaces to prevent layout shift
+			endIndicator += strings.Repeat(" ", endIndicatorWidth+1)
+		}
+
+		repoLine = repoLine + strings.Repeat(" ", padding) + endIndicator
 
 		content += style.Render(repoLine) + "\n"
 	}
 
 	content += "\n"
 	return content
-}
-
-// getCursorIndicator returns the appropriate cursor indicator for selected/unselected items.
-func (r *Renderer) getCursorIndicator(isSelected bool) string {
-	if isSelected {
-		return ">"
-	}
-	return " "
 }
 
 // renderHelp renders the help section with available key bindings.
