@@ -7,16 +7,19 @@ import (
 	"github.com/jarmocluyse/wip-tui/internal/git"
 )
 
+// StatusUpdater handles updating Git repository status information.
 type StatusUpdater struct {
 	gitChecker git.StatusChecker
 }
 
+// NewStatusUpdater creates a new status updater with the given Git checker.
 func NewStatusUpdater(gitChecker git.StatusChecker) *StatusUpdater {
 	return &StatusUpdater{
 		gitChecker: gitChecker,
 	}
 }
 
+// UpdateStatus updates the Git status information for a single repository.
 func (s *StatusUpdater) UpdateStatus(repo *Repository) {
 	if !s.gitChecker.IsGitRepository(repo.Path) {
 		s.setErrorStatus(repo)
@@ -34,6 +37,7 @@ func (s *StatusUpdater) UpdateStatus(repo *Repository) {
 	}
 }
 
+// UpdateRepositories updates status for multiple repositories concurrently using a worker pool.
 func (s *StatusUpdater) UpdateRepositories(repositories []Repository) {
 	// Use a worker pool to process repositories concurrently
 	numWorkers := runtime.NumCPU()
@@ -68,6 +72,7 @@ func (s *StatusUpdater) UpdateRepositories(repositories []Repository) {
 	wg.Wait()
 }
 
+// updateBareRepositoryStatus updates status information for bare repositories.
 func (s *StatusUpdater) updateBareRepositoryStatus(repo *Repository) {
 	repo.HasUncommitted = false
 	repo.HasUntracked = false
@@ -81,12 +86,14 @@ func (s *StatusUpdater) updateBareRepositoryStatus(repo *Repository) {
 	repo.HasUnpushed = len(worktrees) > 0
 }
 
+// updateRegularRepositoryStatus updates status information for regular repositories.
 func (s *StatusUpdater) updateRegularRepositoryStatus(repo *Repository) {
 	repo.HasUncommitted = s.gitChecker.HasUncommittedChanges(repo.Path)
 	repo.HasUnpushed = s.gitChecker.HasUnpushedCommits(repo.Path)
 	repo.HasUntracked = s.gitChecker.HasUntrackedFiles(repo.Path)
 }
 
+// setCleanStatus sets all status flags to false indicating a clean repository.
 func (s *StatusUpdater) setCleanStatus(repo *Repository) {
 	repo.HasUncommitted = false
 	repo.HasUnpushed = false
@@ -94,6 +101,7 @@ func (s *StatusUpdater) setCleanStatus(repo *Repository) {
 	repo.HasError = false
 }
 
+// setErrorStatus sets the repository to error state, clearing other status flags.
 func (s *StatusUpdater) setErrorStatus(repo *Repository) {
 	repo.HasUncommitted = false
 	repo.HasUnpushed = false

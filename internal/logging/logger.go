@@ -1,3 +1,4 @@
+// Package logging provides structured logging functionality for the application.
 package logging
 
 import (
@@ -5,8 +6,11 @@ import (
 	"os"
 )
 
+// logger is the global structured logger instance.
 var logger *slog.Logger
 
+// Init initializes the global logger with file output.
+// Falls back to stderr if file creation fails.
 func Init() {
 	// Create a file for logging
 	logFile, err := os.OpenFile("wip-tui.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -28,6 +32,7 @@ func Init() {
 	logger.Info("logger initialized successfully", "log_file", "wip-tui.log")
 }
 
+// Get returns the global logger instance, initializing it if necessary.
 func Get() *slog.Logger {
 	if logger == nil {
 		Init()

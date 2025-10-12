@@ -1,7 +1,9 @@
+// Package repository provides Git repository management and status tracking functionality.
 package repository
 
 import "github.com/jarmocluyse/wip-tui/internal/git"
 
+// Repository represents a Git repository with its status information.
 type Repository struct {
 	Name           string
 	Path           string
@@ -14,6 +16,7 @@ type Repository struct {
 	IsBare         bool
 }
 
+// NavigableItem represents a repository or worktree that can be navigated to.
 type NavigableItem struct {
 	Type         string // "repository" or "worktree"
 	Repository   *Repository
@@ -21,16 +24,19 @@ type NavigableItem struct {
 	ParentRepo   *Repository // For worktrees, reference to parent bare repo
 }
 
+// Handler manages a collection of repositories.
 type Handler struct {
 	repositories []Repository
 }
 
+// NewHandler creates a new repository handler.
 func NewHandler() *Handler {
 	return &Handler{
 		repositories: make([]Repository, 0),
 	}
 }
 
+// SetRepositories sets the repositories from a list of paths.
 func (h *Handler) SetRepositories(paths []string) {
 	h.repositories = make([]Repository, 0, len(paths))
 	for _, path := range paths {
@@ -42,10 +48,12 @@ func (h *Handler) SetRepositories(paths []string) {
 	}
 }
 
+// GetRepositories returns the list of managed repositories.
 func (h *Handler) GetRepositories() []Repository {
 	return h.repositories
 }
 
+// AddRepository adds a new repository with the given name and path.
 func (h *Handler) AddRepository(name, path string) {
 	repo := Repository{
 		Name: name,
@@ -54,6 +62,7 @@ func (h *Handler) AddRepository(name, path string) {
 	h.repositories = append(h.repositories, repo)
 }
 
+// AddRepositoryWithAutoDiscover adds a repository with auto-discovery settings.
 func (h *Handler) AddRepositoryWithAutoDiscover(name, path string, autoDiscover bool) {
 	repo := Repository{
 		Name:         name,
@@ -63,12 +72,14 @@ func (h *Handler) AddRepositoryWithAutoDiscover(name, path string, autoDiscover 
 	h.repositories = append(h.repositories, repo)
 }
 
+// RemoveRepository removes a repository by index.
 func (h *Handler) RemoveRepository(index int) {
 	if h.isValidIndex(index) {
 		h.repositories = append(h.repositories[:index], h.repositories[index+1:]...)
 	}
 }
 
+// RemoveRepositoryByPath removes a repository by its path.
 func (h *Handler) RemoveRepositoryByPath(path string) {
 	for i, repo := range h.repositories {
 		if repo.Path == path {
@@ -78,6 +89,7 @@ func (h *Handler) RemoveRepositoryByPath(path string) {
 	}
 }
 
+// GetPaths returns the paths of all managed repositories.
 func (h *Handler) GetPaths() []string {
 	paths := make([]string, 0, len(h.repositories))
 	for _, repo := range h.repositories {
@@ -86,10 +98,12 @@ func (h *Handler) GetPaths() []string {
 	return paths
 }
 
+// isValidIndex checks if the given index is valid for the repositories slice.
 func (h *Handler) isValidIndex(index int) bool {
 	return index >= 0 && index < len(h.repositories)
 }
 
+// extractNameFromPath extracts a repository name from its path.
 func extractNameFromPath(path string) string {
 	// Extract the last component of the path as the name
 	if path == "" {

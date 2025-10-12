@@ -1,3 +1,4 @@
+// Package header provides application header rendering functionality.
 package header
 
 import (
@@ -5,12 +6,12 @@ import (
 	"github.com/jarmocluyse/wip-tui/internal/theme"
 )
 
-// Renderer handles rendering of application headers/titles
+// Renderer handles rendering of application headers/titles.
 type Renderer struct {
 	titleStyle lipgloss.Style
 }
 
-// NewRenderer creates a new header renderer with the given theme
+// NewRenderer creates a new header renderer with the given theme.
 func NewRenderer(themeConfig theme.Theme) *Renderer {
 	return &Renderer{
 		titleStyle: lipgloss.NewStyle().
@@ -21,7 +22,7 @@ func NewRenderer(themeConfig theme.Theme) *Renderer {
 	}
 }
 
-// Render renders a header with the given title text and width
+// Render renders a header with the given title text and width.
 func (h *Renderer) Render(title string, width int) string {
 	if width <= 0 {
 		width = 80 // Default width
@@ -29,7 +30,8 @@ func (h *Renderer) Render(title string, width int) string {
 	return h.titleStyle.Width(width).Render(title)
 }
 
-// RenderWithSpacing renders a header with the given title and width, adds spacing below it
+// RenderWithSpacing renders a header with title and adds 2 newlines below.
+// Returns 3 total lines: 1 for header + 2 for spacing.
 func (h *Renderer) RenderWithSpacing(title string, width int) string {
 	return h.Render(title, width) + "\n\n"
 }

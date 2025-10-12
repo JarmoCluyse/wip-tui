@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -14,8 +13,12 @@ import (
 	"github.com/jarmocluyse/wip-tui/internal/git"
 	"github.com/jarmocluyse/wip-tui/internal/logging"
 	"github.com/jarmocluyse/wip-tui/internal/repository"
+	"github.com/jarmocluyse/wip-tui/internal/theme"
+	"github.com/jarmocluyse/wip-tui/internal/ui/pages/details"
+	"github.com/jarmocluyse/wip-tui/internal/ui/types"
 )
 
+// CreateInitialModel creates and returns an initial Model with default configuration.
 func CreateInitialModel(deps Dependencies) Model {
 	cfg, err := deps.GetConfigService().Load()
 	if err != nil {
@@ -42,10 +45,15 @@ func CreateInitialModel(deps Dependencies) Model {
 	}
 }
 
+// Init initializes the Model and returns commands to run on startup.
 func (m Model) Init() tea.Cmd {
-	return m.updateRepositoryStatuses()
+	return tea.Batch(
+		m.updateRepositoryStatuses(),
+		tea.WindowSize(), // Explicitly request window size
+	)
 }
 
+// updateRepositoryStatuses creates a command that updates the status of all repositories.
 func (m Model) updateRepositoryStatuses() tea.Cmd {
 	return tea.Cmd(func() tea.Msg {
 		repositories := m.RepoHandler.GetRepositories()
@@ -59,6 +67,7 @@ func (m Model) updateRepositoryStatuses() tea.Cmd {
 	})
 }
 
+// Update handles incoming messages and updates the model accordingly.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -73,9 +82,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleKeyPress processes keyboard input and returns updated model and commands.
 func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Log current state and key press
-	stateNames := []string{"ListView", "AddRepoView", "ExplorerView"}
+	stateNames := []string{"ListView", "RepoManagementView", "ExplorerView", "DetailsView"}
 	stateName := "Unknown"
 	if int(m.State) < len(stateNames) {
 		stateName = stateNames[m.State]
@@ -96,14 +106,17 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.State {
 	case ListView:
 		return m.handleListViewKeys(msg)
-	case AddRepoView:
-		return m.handleAddRepoViewKeys(msg)
+	case RepoManagementView:
+		return m.handleRepoManagementViewKeys(msg)
 	case ExplorerView:
 		return m.handleExplorerViewKeys(msg)
+	case DetailsView:
+		return m.handleDetailsViewKeys(msg)
 	}
 	return m, nil
 }
 
+// handleStatusUpdate processes repository status updates and updates the model.
 func (m Model) handleStatusUpdate(msg StatusMessage) (tea.Model, tea.Cmd) {
 	// Update the repository handler with the updated repositories
 	updatedPaths := make([]string, len(msg.Repositories))
@@ -126,10 +139,12 @@ func (m Model) handleStatusUpdate(msg StatusMessage) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// createDirectoryExplorer creates a new directory explorer instance.
 func (m Model) createDirectoryExplorer() explorer.Explorer {
 	return explorer.New(m.Dependencies.GetGitChecker(), nil)
 }
 
+// loadExplorerDirectory loads and displays the contents of the current explorer directory.
 func (m Model) loadExplorerDirectory() (Model, tea.Cmd) {
 	explorer := m.createDirectoryExplorer()
 	repositories := m.RepoHandler.GetRepositories()
@@ -158,8 +173,11 @@ func (m Model) loadExplorerDirectory() (Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleListViewKeys handles keyboard input in the main repository list view.
 func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
+	keyStr := msg.String()
+
+	switch keyStr {
 	case "ctrl+c", "q":
 		return m, tea.Quit
 	case "up", "k":
@@ -168,8 +186,8 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveCursorDown(), nil
 	case "enter":
 		return m.navigateToSelected()
-	case "a":
-		return m.enterAddRepoMode(), nil
+	case "m":
+		return m.enterRepoManagementMode(), nil
 	case "e":
 		return m.enterExplorerMode()
 	case "w":
@@ -178,25 +196,40 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.deleteSelectedRepository()
 	case "r":
 		return m, m.updateRepositoryStatuses()
-	case "l":
-		return m.openInLazygit()
+	default:
+		// Check for configurable actions
+		if action := m.Config.Keybindings.FindActionByKey(keyStr); action != nil {
+			return m.executeConfiguredAction(*action)
+		}
 	}
 	return m, nil
 }
 
-func (m Model) handleAddRepoViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+// handleRepoManagementViewKeys handles keyboard input in the repository management view.
+func (m Model) handleRepoManagementViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "esc":
-		return m.exitAddRepoMode(), nil
+		return m.exitRepoManagementMode(), nil
+	case "up", "k":
+		return m.moveCursorUp(), nil
+	case "down", "j":
+		return m.moveCursorDown(), nil
 	case "enter":
-		return m.addRepository()
-	case "backspace":
-		return m.removeLastCharacter(), nil
+		return m.navigateToSelected()
+	case "e":
+		return m.enterExplorerMode()
+	case "d":
+		return m.deleteSelectedRepository()
+	case "r":
+		return m, m.updateRepositoryStatuses()
+	case "q":
+		return m, tea.Quit
 	default:
-		return m.appendCharacter(msg.String()), nil
+		return m, nil
 	}
 }
 
+// handleExplorerViewKeys handles keyboard input in the directory explorer view.
 func (m Model) handleExplorerViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	keyStr := msg.String()
 	logging.Get().Debug("explorer key pressed",
@@ -206,7 +239,7 @@ func (m Model) handleExplorerViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch keyStr {
 	case "ctrl+c", "esc", "q":
-		m.State = ListView
+		m.State = m.PreviousState // Return to the previous state
 		return m, nil
 	case "up", "k":
 		return m.moveExplorerCursorUp(), nil
@@ -217,9 +250,12 @@ func (m Model) handleExplorerViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "space", " ":
 		logging.Get().Info("space key detected, calling toggleRepositorySelection", "key", keyStr)
 		return m.toggleRepositorySelection()
-	case "l":
-		return m.openExplorerInLazygit()
 	default:
+		// Check for configurable actions
+		if action := m.Config.Keybindings.FindActionByKey(keyStr); action != nil {
+			return m.executeConfiguredActionForExplorer(*action)
+		}
+
 		logging.Get().Debug("unhandled key in explorer",
 			"key", keyStr,
 			"length", len(keyStr),
@@ -228,6 +264,21 @@ func (m Model) handleExplorerViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// handleDetailsViewKeys handles keyboard input in the repository details view.
+func (m Model) handleDetailsViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "q":
+		return m, tea.Quit
+	case "b", "esc":
+		// Return to list view
+		m.State = ListView
+		m.SelectedNavItem = nil
+		return m, nil
+	}
+	return m, nil
+}
+
+// handleHelpModalKeys handles keyboard input when the help modal is open.
 func (m Model) handleHelpModalKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q", "?":
@@ -240,6 +291,7 @@ func (m Model) handleHelpModalKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // Helper methods
+// moveCursorUp moves the cursor up in the current list and adjusts scroll offset if needed.
 func (m Model) moveCursorUp() Model {
 	if m.Cursor > 0 {
 		m.Cursor--
@@ -251,6 +303,7 @@ func (m Model) moveCursorUp() Model {
 	return m
 }
 
+// moveCursorDown moves the cursor down in the current list and adjusts scroll offset if needed.
 func (m Model) moveCursorDown() Model {
 	navigableItems := m.getNavigableItems()
 	if m.Cursor < len(navigableItems)-1 {
@@ -265,6 +318,7 @@ func (m Model) moveCursorDown() Model {
 }
 
 // Calculate how many items can be visible based on terminal height
+// getVisibleItemCount calculates how many items can be visible based on terminal height.
 func (m Model) getVisibleItemCount() int {
 	// Reserve space for header, help text, and some padding
 	// Each repository item now takes approximately 1 line (without border)
@@ -279,6 +333,7 @@ func (m Model) getVisibleItemCount() int {
 	return itemsPerScreen
 }
 
+// moveExplorerCursorUp moves the explorer cursor up by one position.
 func (m Model) moveExplorerCursorUp() Model {
 	if m.ExplorerCursor > 0 {
 		m.ExplorerCursor--
@@ -286,6 +341,7 @@ func (m Model) moveExplorerCursorUp() Model {
 	return m
 }
 
+// moveExplorerCursorDown moves the explorer cursor down by one position.
 func (m Model) moveExplorerCursorDown() Model {
 	if m.ExplorerCursor < len(m.ExplorerItems)-1 {
 		m.ExplorerCursor++
@@ -293,18 +349,21 @@ func (m Model) moveExplorerCursorDown() Model {
 	return m
 }
 
-func (m Model) enterAddRepoMode() Model {
-	m.State = AddRepoView
-	m.InputField = ""
-	m.InputPrompt = "Enter repository path: "
+// enterRepoManagementMode switches the UI to repository management mode.
+func (m Model) enterRepoManagementMode() Model {
+	m.State = RepoManagementView
+	m.Cursor = 0
+	m.ScrollOffset = 0
 	return m
 }
 
-func (m Model) exitAddRepoMode() Model {
+// exitRepoManagementMode switches the UI back to list view from repository management mode.
+func (m Model) exitRepoManagementMode() Model {
 	m.State = ListView
 	return m
 }
 
+// addRepository adds a new repository from the input field and updates the configuration.
 func (m Model) addRepository() (Model, tea.Cmd) {
 	path := strings.TrimSpace(m.InputField)
 	if path != "" {
@@ -319,6 +378,7 @@ func (m Model) addRepository() (Model, tea.Cmd) {
 	return m, nil
 }
 
+// removeLastCharacter removes the last character from the input field.
 func (m Model) removeLastCharacter() Model {
 	if len(m.InputField) > 0 {
 		m.InputField = m.InputField[:len(m.InputField)-1]
@@ -326,6 +386,7 @@ func (m Model) removeLastCharacter() Model {
 	return m
 }
 
+// appendCharacter appends a single character to the input field.
 func (m Model) appendCharacter(char string) Model {
 	if len(char) == 1 {
 		m.InputField += char
@@ -333,11 +394,14 @@ func (m Model) appendCharacter(char string) Model {
 	return m
 }
 
+// enterExplorerMode switches the UI to directory explorer mode and loads the current directory.
 func (m Model) enterExplorerMode() (Model, tea.Cmd) {
+	m.PreviousState = m.State
 	m.State = ExplorerView
 	return m.loadExplorerDirectory()
 }
 
+// handleExplorerSelection handles selection in the directory explorer by navigating into directories.
 func (m Model) handleExplorerSelection() (Model, tea.Cmd) {
 	if len(m.ExplorerItems) == 0 || m.ExplorerCursor >= len(m.ExplorerItems) {
 		return m, nil
@@ -353,6 +417,7 @@ func (m Model) handleExplorerSelection() (Model, tea.Cmd) {
 	return m, nil
 }
 
+// toggleRepositorySelection toggles the selection state of a git repository in the explorer.
 func (m Model) toggleRepositorySelection() (Model, tea.Cmd) {
 	logging.Get().Debug("toggleRepositorySelection called",
 		"items_count", len(m.ExplorerItems),
@@ -409,11 +474,13 @@ func (m Model) toggleRepositorySelection() (Model, tea.Cmd) {
 	return m.loadExplorerDirectory()
 }
 
+// removeRepositoryByPath removes a repository from the handler by its path.
 func (m Model) removeRepositoryByPath(path string) {
 	m.RepoHandler.RemoveRepositoryByPath(path)
 	m.NavItemsNeedSync = true // Cache needs update after removing
 }
 
+// navigateToSelected navigates to the currently selected repository or worktree in details view.
 func (m Model) navigateToSelected() (Model, tea.Cmd) {
 	navigableItems := m.getNavigableItems()
 	if m.Cursor >= len(navigableItems) {
@@ -422,23 +489,14 @@ func (m Model) navigateToSelected() (Model, tea.Cmd) {
 
 	selectedItem := navigableItems[m.Cursor]
 
-	if selectedItem.Type == "worktree" {
-		// Set the explorer to the worktree path
-		m.State = ExplorerView
-		m.ExplorerPath = selectedItem.WorktreeInfo.Path
-		m.ExplorerCursor = 0
-		return m.loadExplorerDirectory()
-	} else if selectedItem.Type == "repository" {
-		// Navigate to repository path
-		m.State = ExplorerView
-		m.ExplorerPath = selectedItem.Repository.Path
-		m.ExplorerCursor = 0
-		return m.loadExplorerDirectory()
-	}
+	// Store the selected item and switch to details view
+	m.SelectedNavItem = &selectedItem
+	m.State = DetailsView
 
 	return m, nil
 }
 
+// discoverWorktrees discovers and adds worktrees from the currently selected bare repository.
 func (m Model) discoverWorktrees() (Model, tea.Cmd) {
 	navigableItems := m.getNavigableItems()
 	if m.Cursor >= len(navigableItems) {
@@ -477,6 +535,7 @@ func (m Model) discoverWorktrees() (Model, tea.Cmd) {
 	return m, m.updateRepositoryStatuses()
 }
 
+// deleteSelectedRepository removes the currently selected repository from the configuration.
 func (m Model) deleteSelectedRepository() (Model, tea.Cmd) {
 	navigableItems := m.getNavigableItems()
 	if m.Cursor >= len(navigableItems) {
@@ -504,6 +563,7 @@ func (m Model) deleteSelectedRepository() (Model, tea.Cmd) {
 	return m, nil
 }
 
+// adjustCursorAfterDeletion adjusts the cursor position after deleting a repository.
 func (m Model) adjustCursorAfterDeletion() int {
 	navigableItems := m.getNavigableItems()
 	if m.Cursor >= len(navigableItems) && len(navigableItems) > 0 {
@@ -520,7 +580,8 @@ func (m Model) adjustCursorAfterDeletion() int {
 	return m.Cursor
 }
 
-func (m Model) openInLazygit() (Model, tea.Cmd) {
+// executeConfiguredAction executes a user-configured action on the currently selected repository.
+func (m Model) executeConfiguredAction(action config.Action) (tea.Model, tea.Cmd) {
 	navigableItems := m.getNavigableItems()
 	if m.Cursor >= len(navigableItems) {
 		return m, nil
@@ -537,24 +598,23 @@ func (m Model) openInLazygit() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Check if lazygit is available
-	if _, err := exec.LookPath("lazygit"); err != nil {
-		logging.Get().Error("lazygit not found in PATH", "error", err)
-		return m, nil
-	}
-
-	// Create command to run lazygit in the target directory
-	cmd := exec.Command("lazygit", "-p", targetPath)
+	// Use the configured action
+	cmd := action.ExecuteOpenAction(targetPath)
 
 	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
 		if err != nil {
-			logging.Get().Error("failed to run lazygit", "error", err, "path", targetPath)
+			logging.Get().Error("failed to run configured action",
+				"error", err,
+				"path", targetPath,
+				"action", action.Name,
+				"key", action.Key)
 		}
 		return nil
 	})
 }
 
-func (m Model) openExplorerInLazygit() (Model, tea.Cmd) {
+// executeConfiguredActionForExplorer executes a user-configured action on the currently selected explorer item.
+func (m Model) executeConfiguredActionForExplorer(action config.Action) (tea.Model, tea.Cmd) {
 	if m.ExplorerCursor >= len(m.ExplorerItems) {
 		return m, nil
 	}
@@ -568,25 +628,24 @@ func (m Model) openExplorerInLazygit() (Model, tea.Cmd) {
 		targetPath = m.ExplorerPath
 	}
 
-	// Check if lazygit is available
-	if _, err := exec.LookPath("lazygit"); err != nil {
-		logging.Get().Error("lazygit not found in PATH", "error", err)
-		return m, nil
-	}
-
-	// Create command to run lazygit in the target directory
-	cmd := exec.Command("lazygit", "-p", targetPath)
+	// Use the configured action
+	cmd := action.ExecuteOpenAction(targetPath)
 
 	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
 		if err != nil {
-			logging.Get().Error("failed to run lazygit", "error", err, "path", targetPath)
+			logging.Get().Error("failed to run configured action",
+				"error", err,
+				"path", targetPath,
+				"action", action.Name,
+				"key", action.Key)
 		}
 		return nil
 	})
 }
 
 // getNavigableItems returns cached navigable items or rebuilds if needed
-func (m *Model) getNavigableItems() []NavigableItem {
+// getNavigableItems returns cached navigable items or rebuilds if needed.
+func (m *Model) getNavigableItems() []types.NavigableItem {
 	if m.CachedNavItems == nil || m.NavItemsNeedSync {
 		m.rebuildNavigableItems()
 		m.NavItemsNeedSync = false
@@ -595,6 +654,7 @@ func (m *Model) getNavigableItems() []NavigableItem {
 }
 
 // rebuildNavigableItems rebuilds the cached navigable items with concurrency
+// rebuildNavigableItems rebuilds the cached navigable items with concurrency.
 func (m *Model) rebuildNavigableItems() {
 	repositories := m.RepoHandler.GetRepositories()
 	gitChecker := m.Dependencies.GetGitChecker()
@@ -602,7 +662,7 @@ func (m *Model) rebuildNavigableItems() {
 	// Use channels to collect results
 	type repoResult struct {
 		index int
-		items []NavigableItem
+		items []types.NavigableItem
 	}
 
 	resultChan := make(chan repoResult, len(repositories))
@@ -614,10 +674,10 @@ func (m *Model) rebuildNavigableItems() {
 			semaphore <- struct{}{}        // Acquire semaphore
 			defer func() { <-semaphore }() // Release semaphore
 
-			var repoItems []NavigableItem
+			var repoItems []types.NavigableItem
 
 			// Add the repository itself
-			repoItems = append(repoItems, NavigableItem{
+			repoItems = append(repoItems, types.NavigableItem{
 				Type:       "repository",
 				Repository: repo,
 			})
@@ -636,7 +696,7 @@ func (m *Model) rebuildNavigableItems() {
 					// Add worktrees with proper IsLast flag
 					for j, wt := range validWorktrees {
 						isLast := j == len(validWorktrees)-1
-						repoItems = append(repoItems, NavigableItem{
+						repoItems = append(repoItems, types.NavigableItem{
 							Type:         "worktree",
 							WorktreeInfo: &wt,
 							ParentRepo:   repo,
@@ -651,14 +711,14 @@ func (m *Model) rebuildNavigableItems() {
 	}
 
 	// Collect results and maintain order
-	results := make([][]NavigableItem, len(repositories))
+	results := make([][]types.NavigableItem, len(repositories))
 	for i := 0; i < len(repositories); i++ {
 		result := <-resultChan
 		results[result.index] = result.items
 	}
 
 	// Flatten results in correct order
-	var items []NavigableItem
+	var items []types.NavigableItem
 	for _, repoItems := range results {
 		items = append(items, repoItems...)
 	}
@@ -666,8 +726,9 @@ func (m *Model) rebuildNavigableItems() {
 	m.CachedNavItems = items
 }
 
-func (m Model) buildNavigableItems() []NavigableItem {
-	var items []NavigableItem
+// buildNavigableItems creates a list of navigable items from repositories and their worktrees.
+func (m Model) buildNavigableItems() []types.NavigableItem {
+	var items []types.NavigableItem
 	gitChecker := m.Dependencies.GetGitChecker() // Use the cached git checker instead of creating new
 	repositories := m.RepoHandler.GetRepositories()
 
@@ -675,7 +736,7 @@ func (m Model) buildNavigableItems() []NavigableItem {
 		repo := &repositories[i]
 
 		// Add the repository itself
-		items = append(items, NavigableItem{
+		items = append(items, types.NavigableItem{
 			Type:       "repository",
 			Repository: repo,
 		})
@@ -694,7 +755,7 @@ func (m Model) buildNavigableItems() []NavigableItem {
 				// Add worktrees with proper IsLast flag
 				for j, wt := range validWorktrees {
 					isLast := j == len(validWorktrees)-1
-					items = append(items, NavigableItem{
+					items = append(items, types.NavigableItem{
 						Type:         "worktree",
 						WorktreeInfo: &wt,
 						ParentRepo:   repo,
@@ -708,16 +769,19 @@ func (m Model) buildNavigableItems() []NavigableItem {
 	return items
 }
 
+// View renders the current view based on the model's state.
 func (m Model) View() string {
 	// Get the main view content
 	var mainView string
 	switch m.State {
 	case ListView:
 		mainView = m.renderListView()
-	case AddRepoView:
-		mainView = m.renderAddRepoView()
+	case RepoManagementView:
+		mainView = m.renderRepoManagementView()
 	case ExplorerView:
 		mainView = m.renderExplorerView()
+	case DetailsView:
+		mainView = m.renderDetailsView()
 	default:
 		mainView = ""
 	}
@@ -730,6 +794,7 @@ func (m Model) View() string {
 	return mainView
 }
 
+// renderListView renders the main repository list view.
 func (m Model) renderListView() string {
 	styles := CreateStyleConfig(m.Config.Theme)
 	renderer := NewListViewRenderer(styles, m.Config.Theme)
@@ -754,7 +819,7 @@ func (m Model) renderListView() string {
 	}
 
 	// Get visible items
-	var visibleItems []NavigableItem
+	var visibleItems []types.NavigableItem
 	if len(allItems) > 0 && start < end {
 		visibleItems = allItems[start:end]
 	}
@@ -765,21 +830,51 @@ func (m Model) renderListView() string {
 	// Get the cached git checker
 	gitChecker := m.Dependencies.GetGitChecker()
 
-	return renderer.RenderNavigable(visibleItems, relativeCursor, m.Width, m.Height, gitChecker)
+	return renderer.RenderNavigable(visibleItems, relativeCursor, m.Width, m.Height, gitChecker, m.Config.Keybindings.Actions)
 }
 
-func (m Model) renderAddRepoView() string {
+// renderRepoManagementView renders the repository management view.
+func (m Model) renderRepoManagementView() string {
 	styles := CreateStyleConfig(m.Config.Theme)
-	renderer := NewAddRepoViewRenderer(styles, m.Config.Theme)
-	return renderer.Render(m.InputPrompt, m.InputField, m.Width)
+	renderer := NewRepoManagementViewRenderer(styles, m.Config.Theme)
+	repositories := m.RepoHandler.GetRepositories()
+	return renderer.Render(repositories, m.Cursor, m.Width, m.Height)
 }
 
+// renderExplorerView renders the directory explorer view.
 func (m Model) renderExplorerView() string {
 	styles := CreateStyleConfig(m.Config.Theme)
 	renderer := NewExplorerViewRenderer(styles, m.Config.Theme)
-	return renderer.Render(m.ExplorerPath, m.ExplorerItems, m.ExplorerCursor, m.Width)
+	return renderer.Render(m.ExplorerPath, m.ExplorerItems, m.ExplorerCursor, m.Width, m.Height)
 }
 
+// NewDetailsViewRenderer creates a new details view renderer with the given styles and theme.
+func NewDetailsViewRenderer(styles StyleConfig, themeConfig theme.Theme) *details.Renderer {
+	detailsStyles := details.StyleConfig{
+		Item:         styles.Item,
+		SelectedItem: styles.SelectedItem,
+		Label:        styles.Item.Foreground(lipgloss.Color(themeConfig.Colors.Selected)).Bold(true),
+		Value:        styles.Item,
+		Help:         styles.Help,
+		Border:       styles.Border,
+		Title:        styles.Item.Bold(true),
+	}
+	return details.NewRenderer(detailsStyles, themeConfig)
+}
+
+// renderDetailsView renders the repository details view.
+func (m Model) renderDetailsView() string {
+	if m.SelectedNavItem == nil {
+		// Fallback to list view if no item is selected
+		return m.renderListView()
+	}
+
+	styles := CreateStyleConfig(m.Config.Theme)
+	renderer := NewDetailsViewRenderer(styles, m.Config.Theme)
+	return renderer.Render(*m.SelectedNavItem, m.Width, m.Height)
+}
+
+// renderHelpModal renders the help modal overlay on top of the background view.
 func (m Model) renderHelpModal(backgroundView string) string {
 	styles := CreateStyleConfig(m.Config.Theme)
 

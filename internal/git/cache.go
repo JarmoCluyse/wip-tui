@@ -5,20 +5,20 @@ import (
 	"time"
 )
 
-// CacheEntry represents a cached git operation result
+// CacheEntry represents a cached git operation result.
 type CacheEntry struct {
 	Value     interface{}
 	ExpiresAt time.Time
 }
 
-// Cache provides caching for git operations to improve performance
+// Cache provides caching for git operations to improve performance.
 type Cache struct {
 	entries map[string]CacheEntry
 	mutex   sync.RWMutex
 	ttl     time.Duration
 }
 
-// NewCache creates a new cache with specified TTL
+// NewCache creates a new cache with specified TTL.
 func NewCache(ttl time.Duration) *Cache {
 	return &Cache{
 		entries: make(map[string]CacheEntry),
@@ -26,7 +26,7 @@ func NewCache(ttl time.Duration) *Cache {
 	}
 }
 
-// Get retrieves a value from cache if it exists and hasn't expired
+// Get retrieves a value from cache if it exists and hasn't expired.
 func (c *Cache) Get(key string) (interface{}, bool) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
@@ -43,7 +43,7 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 	return entry.Value, true
 }
 
-// Set stores a value in cache with expiration
+// Set stores a value in cache with expiration.
 func (c *Cache) Set(key string, value interface{}) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -54,14 +54,14 @@ func (c *Cache) Set(key string, value interface{}) {
 	}
 }
 
-// Clear removes all entries from cache
+// Clear removes all entries from cache.
 func (c *Cache) Clear() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	c.entries = make(map[string]CacheEntry)
 }
 
-// CleanExpired removes expired entries from cache
+// CleanExpired removes expired entries from cache.
 func (c *Cache) CleanExpired() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()

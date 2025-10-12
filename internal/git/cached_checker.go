@@ -5,13 +5,13 @@ import (
 	"time"
 )
 
-// CachedChecker wraps the git checker with caching capabilities
+// CachedChecker wraps the git checker with caching capabilities.
 type CachedChecker struct {
 	checker StatusChecker
 	cache   *Cache
 }
 
-// NewCachedChecker creates a new cached git checker with 5 second TTL
+// NewCachedChecker creates a new cached git checker with 5 second TTL.
 func NewCachedChecker() StatusChecker {
 	return &CachedChecker{
 		checker: NewChecker(),
@@ -19,7 +19,7 @@ func NewCachedChecker() StatusChecker {
 	}
 }
 
-// NewCachedCheckerWithTTL creates a new cached git checker with custom TTL
+// NewCachedCheckerWithTTL creates a new cached git checker with custom TTL.
 func NewCachedCheckerWithTTL(ttl time.Duration) StatusChecker {
 	return &CachedChecker{
 		checker: NewChecker(),
@@ -27,11 +27,12 @@ func NewCachedCheckerWithTTL(ttl time.Duration) StatusChecker {
 	}
 }
 
-// ClearCache clears all cached values
+// ClearCache clears all cached values.
 func (c *CachedChecker) ClearCache() {
 	c.cache.Clear()
 }
 
+// IsGitRepository checks if the given path contains a Git repository (cached).
 func (c *CachedChecker) IsGitRepository(path string) bool {
 	key := fmt.Sprintf("IsGitRepository:%s", path)
 	if value, ok := c.cache.Get(key); ok {
@@ -43,6 +44,7 @@ func (c *CachedChecker) IsGitRepository(path string) bool {
 	return result
 }
 
+// IsBareRepository checks if the repository at the given path is a bare repository (cached).
 func (c *CachedChecker) IsBareRepository(path string) bool {
 	key := fmt.Sprintf("IsBareRepository:%s", path)
 	if value, ok := c.cache.Get(key); ok {
@@ -54,6 +56,7 @@ func (c *CachedChecker) IsBareRepository(path string) bool {
 	return result
 }
 
+// IsWorktree checks if the given path is a Git worktree (cached).
 func (c *CachedChecker) IsWorktree(path string) bool {
 	key := fmt.Sprintf("IsWorktree:%s", path)
 	if value, ok := c.cache.Get(key); ok {
@@ -65,6 +68,7 @@ func (c *CachedChecker) IsWorktree(path string) bool {
 	return result
 }
 
+// ListWorktrees returns all worktrees for the repository at the given path (cached).
 func (c *CachedChecker) ListWorktrees(path string) ([]WorktreeInfo, error) {
 	key := fmt.Sprintf("ListWorktrees:%s", path)
 	if value, ok := c.cache.Get(key); ok {
@@ -77,6 +81,7 @@ func (c *CachedChecker) ListWorktrees(path string) ([]WorktreeInfo, error) {
 	return worktrees, err
 }
 
+// HasUncommittedChanges checks if the repository has uncommitted changes (cached).
 func (c *CachedChecker) HasUncommittedChanges(path string) bool {
 	key := fmt.Sprintf("HasUncommittedChanges:%s", path)
 	if value, ok := c.cache.Get(key); ok {
@@ -88,6 +93,7 @@ func (c *CachedChecker) HasUncommittedChanges(path string) bool {
 	return result
 }
 
+// HasUnpushedCommits checks if the repository has unpushed commits (cached).
 func (c *CachedChecker) HasUnpushedCommits(path string) bool {
 	key := fmt.Sprintf("HasUnpushedCommits:%s", path)
 	if value, ok := c.cache.Get(key); ok {
@@ -99,6 +105,7 @@ func (c *CachedChecker) HasUnpushedCommits(path string) bool {
 	return result
 }
 
+// HasUntrackedFiles checks if the repository has untracked files (cached).
 func (c *CachedChecker) HasUntrackedFiles(path string) bool {
 	key := fmt.Sprintf("HasUntrackedFiles:%s", path)
 	if value, ok := c.cache.Get(key); ok {
@@ -110,6 +117,7 @@ func (c *CachedChecker) HasUntrackedFiles(path string) bool {
 	return result
 }
 
+// GetCurrentBranch returns the current branch name (cached).
 func (c *CachedChecker) GetCurrentBranch(path string) string {
 	key := fmt.Sprintf("GetCurrentBranch:%s", path)
 	if value, ok := c.cache.Get(key); ok {
@@ -121,7 +129,7 @@ func (c *CachedChecker) GetCurrentBranch(path string) string {
 	return result
 }
 
-// cachedWorktreeResult is used to cache both worktrees and error results
+// cachedWorktreeResult is used to cache both worktrees and error results.
 type cachedWorktreeResult struct {
 	Worktrees []WorktreeInfo
 	Error     error

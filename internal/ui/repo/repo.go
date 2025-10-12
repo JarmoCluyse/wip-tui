@@ -76,13 +76,20 @@ func (r *Renderer) RenderRepository(repo repository.Repository, isSelected bool,
 	}
 	leftWidth := lipgloss.Width(leftContent)
 	statusWidth := lipgloss.Width(statusIndicator)
-	padding := totalWidth - leftWidth - statusWidth
-	if padding < 1 {
-		padding = 1
+
+	// Create end-of-line selection indicator
+	var endIndicator string
+	if isSelected {
+		endIndicator = r.styles.SelectedItem.Render("█")
+	} else {
+		endIndicator = " "
 	}
 
-	// Format: cursor icon name branch [padding] status cursorIndicator
-	line := leftContent + strings.Repeat(" ", padding) + statusIndicator + " " + cursorIndicator
+	endIndicatorWidth := lipgloss.Width(endIndicator)
+	padding := max(totalWidth-leftWidth-statusWidth-endIndicatorWidth-1, 1)
+
+	// Format: cursor icon name branch [padding] status endIndicator
+	line := leftContent + strings.Repeat(" ", padding) + statusIndicator + " " + endIndicator
 	content := style.Render(line)
 
 	// If this is a bare repository, add its worktrees to the content
@@ -135,13 +142,20 @@ func (r *Renderer) RenderRepositoryOnly(repo repository.Repository, isSelected b
 	}
 	leftWidth := lipgloss.Width(leftContent)
 	statusWidth := lipgloss.Width(statusIndicator)
-	padding := totalWidth - leftWidth - statusWidth
-	if padding < 1 {
-		padding = 1
+
+	// Create end-of-line selection indicator
+	var endIndicator string
+	if isSelected {
+		endIndicator = r.styles.SelectedItem.Render("█")
+	} else {
+		endIndicator = " "
 	}
 
-	// Format: cursor icon name branch [padding] status cursorIndicator
-	line := leftContent + strings.Repeat(" ", padding) + statusIndicator + " " + cursorIndicator
+	endIndicatorWidth := lipgloss.Width(endIndicator)
+	padding := max(totalWidth-leftWidth-statusWidth-endIndicatorWidth-1, 1)
+
+	// Format: cursor icon name branch [padding] status endIndicator
+	line := leftContent + strings.Repeat(" ", padding) + statusIndicator + " " + endIndicator
 	content := style.Render(line)
 
 	// Don't wrap bare repositories in border - they will be grouped with their worktrees
@@ -180,20 +194,28 @@ func (r *Renderer) RenderWorktree(wt git.WorktreeInfo, parentName, bareRepoPath 
 	}
 	leftWidth := lipgloss.Width(leftContent)
 	statusWidth := lipgloss.Width(status)
-	cursorWidth := lipgloss.Width(cursorIndicator)
-	padding := totalWidth - leftWidth - statusWidth - cursorWidth - 1 // -1 for space
-	if padding < 1 {
-		padding = 1
+
+	// Create end-of-line selection indicator
+	var endIndicator string
+	if isSelected {
+		endIndicator = r.styles.SelectedItem.Render("█")
+	} else {
+		endIndicator = " "
 	}
 
-	// Format: cursor treeIcon 🌳 path branch [padding] status cursorIndicator
-	line := leftContent + strings.Repeat(" ", padding) + status + " " + cursorIndicator
+	endIndicatorWidth := lipgloss.Width(endIndicator)
+	// -1 for space
+	padding := max(totalWidth-leftWidth-statusWidth-endIndicatorWidth-1, 1)
+
+	// Format: cursor treeIcon 🌳 path branch [padding] status endIndicator
+	line := leftContent + strings.Repeat(" ", padding) + status + " " + endIndicator
 	content := style.Render(line)
 
 	// Don't wrap in border - this makes worktrees appear as part of parent repo
 	return content
 }
 
+// getItemStyle returns the appropriate style based on selection state.
 func (r *Renderer) getItemStyle(isSelected bool) lipgloss.Style {
 	if isSelected {
 		return r.styles.SelectedItem
@@ -201,6 +223,7 @@ func (r *Renderer) getItemStyle(isSelected bool) lipgloss.Style {
 	return r.styles.Item
 }
 
+// getStatusIndicator returns formatted status indicators for a repository.
 func (r *Renderer) getStatusIndicator(repo repository.Repository) string {
 	var indicators []string
 
@@ -237,6 +260,7 @@ func (r *Renderer) getStatusIndicator(repo repository.Repository) string {
 	return strings.Join(indicators, " ")
 }
 
+// renderWorktrees renders all valid worktrees for a bare repository.
 func (r *Renderer) renderWorktrees(repo repository.Repository, width int, gitChecker git.StatusChecker) string {
 	worktrees, err := gitChecker.ListWorktrees(repo.Path)
 	if err != nil {
@@ -261,6 +285,7 @@ func (r *Renderer) renderWorktrees(repo repository.Repository, width int, gitChe
 	return strings.Join(worktreeLines, "\n")
 }
 
+// renderWorktreeItem renders a single worktree item with tree structure indicators.
 func (r *Renderer) renderWorktreeItem(wt git.WorktreeInfo, repoName string, bareRepoPath string, isLast bool, width int, gitChecker git.StatusChecker) string {
 	// Create worktree status
 	status := r.getWorktreeStatusIndicators(wt.Path, gitChecker)
@@ -297,6 +322,7 @@ func (r *Renderer) renderWorktreeItem(wt git.WorktreeInfo, repoName string, bare
 	return r.styles.Item.Render(line)
 }
 
+// getRelativePathToBareRepo returns the relative path from the bare repository to the worktree.
 func (r *Renderer) getRelativePathToBareRepo(worktreePath, bareRepoPath string) string {
 	bareRepoDir := filepath.Dir(bareRepoPath)
 
@@ -307,6 +333,7 @@ func (r *Renderer) getRelativePathToBareRepo(worktreePath, bareRepoPath string) 
 	return worktreePath
 }
 
+// getWorktreeStatusIndicators returns formatted status indicators for a worktree.
 func (r *Renderer) getWorktreeStatusIndicators(path string, gitChecker git.StatusChecker) string {
 	if !gitChecker.IsGitRepository(path) {
 		return r.styles.StatusError.Render(r.theme.Indicators.Error)

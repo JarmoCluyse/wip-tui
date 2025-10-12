@@ -1,3 +1,4 @@
+// Package main provides the entry point for the wip-tui application.
 package main
 
 import (
@@ -12,6 +13,7 @@ import (
 	"github.com/jarmocluyse/wip-tui/internal/ui"
 )
 
+// main initializes and runs the wip-tui application.
 func main() {
 	// Parse command line arguments
 	args, err := cli.ParseArgs()

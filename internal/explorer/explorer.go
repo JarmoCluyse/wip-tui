@@ -1,3 +1,4 @@
+// Package explorer provides filesystem navigation with Git repository detection and worktree support.
 package explorer
 
 import (
@@ -9,11 +10,13 @@ import (
 	"github.com/jarmocluyse/wip-tui/internal/repository"
 )
 
+// Explorer provides filesystem navigation capabilities.
 type Explorer interface {
 	ListDirectory(path string, repositories []repository.Repository) ([]Item, error)
 	GetParentDirectory(path string) string
 }
 
+// Item represents a filesystem entry with Git repository information.
 type Item struct {
 	Name           string
 	Path           string
@@ -28,16 +31,20 @@ type Item struct {
 	HasError       bool
 }
 
+// FileSystemExplorer implements filesystem exploration with Git integration.
 type FileSystemExplorer struct {
 	gitChecker git.StatusChecker
 }
 
+// New creates a new FileSystemExplorer with the given Git status checker.
 func New(gitChecker git.StatusChecker, config interface{}) Explorer {
 	return &FileSystemExplorer{
 		gitChecker: gitChecker,
 	}
 }
 
+// ListDirectory returns all items in the specified directory, including Git repositories and worktrees.
+// For bare repositories, it also includes their associated worktrees.
 func (f *FileSystemExplorer) ListDirectory(path string, repositories []repository.Repository) ([]Item, error) {
 	entries, err := os.ReadDir(path)
 	if err != nil {
@@ -84,6 +91,7 @@ func (f *FileSystemExplorer) ListDirectory(path string, repositories []repositor
 	return items, nil
 }
 
+// GetParentDirectory returns the parent directory of the given path.
 func (f *FileSystemExplorer) GetParentDirectory(path string) string {
 	parent := filepath.Dir(path)
 	if parent == path {
@@ -92,14 +100,17 @@ func (f *FileSystemExplorer) GetParentDirectory(path string) string {
 	return parent
 }
 
+// shouldSkipEntry returns true if the entry should be skipped (hidden files).
 func (f *FileSystemExplorer) shouldSkipEntry(name string) bool {
 	return strings.HasPrefix(name, ".")
 }
 
+// isGitRepository checks if the given path is a Git repository.
 func (f *FileSystemExplorer) isGitRepository(path string) bool {
 	return f.gitChecker.IsGitRepository(path)
 }
 
+// isAlreadyAdded checks if the path is already in the managed repositories list.
 func (f *FileSystemExplorer) isAlreadyAdded(path string, repositories []repository.Repository) bool {
 	// Normalize the path for comparison
 	cleanPath := filepath.Clean(path)
@@ -113,6 +124,7 @@ func (f *FileSystemExplorer) isAlreadyAdded(path string, repositories []reposito
 	return false
 }
 
+// getWorktreeItems returns worktree items for a bare repository.
 func (f *FileSystemExplorer) getWorktreeItems(bareRepoPath string, repositories []repository.Repository) []Item {
 	worktrees, err := f.gitChecker.ListWorktrees(bareRepoPath)
 	if err != nil {
@@ -148,6 +160,7 @@ func (f *FileSystemExplorer) getWorktreeItems(bareRepoPath string, repositories 
 	return items
 }
 
+// updateWorktreeStatus updates Git status information for a worktree item.
 func (f *FileSystemExplorer) updateWorktreeStatus(item *Item) {
 	if !f.gitChecker.IsGitRepository(item.Path) {
 		item.HasError = true

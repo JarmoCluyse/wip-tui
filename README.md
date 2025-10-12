@@ -76,7 +76,14 @@ go build .
 - `w`: Discover worktrees from selected bare repository
 - `d`: Delete selected repository
 - `r`: Refresh all repository statuses
+- `l`: Open repository in Lazygit (configurable)
+- `c`: Open repository in VS Code (configurable)
+- `t`: Open terminal in repository directory (configurable)
+- `Enter`: View repository details
 - `q`: Quit application
+- `?`: Show help modal
+
+**Note:** The `l`, `c`, and `t` actions are configurable through the config file. See the [Configurable Actions](#configurable-actions) section below.
 
 **Explorer View:**
 - `↑/k`: Move cursor up
@@ -131,6 +138,28 @@ repository_paths = [
     "/path/to/repo2"
 ]
 
+# Configurable keybindings for repository actions
+[[keybindings.actions]]
+name = "Lazygit"
+key = "l"
+command = "lazygit"
+args = ["-p", "{path}"]
+description = "Open repository in Lazygit"
+
+[[keybindings.actions]]
+name = "VS Code"
+key = "c"
+command = "code"
+args = ["{path}"]
+description = "Open repository in VS Code"
+
+[[keybindings.actions]]
+name = "Terminal"
+key = "t"
+command = "gnome-terminal"
+args = ["--working-directory={path}"]
+description = "Open terminal in repository directory"
+
 [theme.colors]
 title = "#FF6B6B"
 title_background = "#000000"
@@ -157,6 +186,68 @@ not_added = "➕"
 **Customizable Theme Options:**
 - **Colors**: All UI colors can be customized using hex color codes
 - **Indicators**: Status indicators can be customized with any Unicode characters/emojis
+
+### Configurable Actions
+
+You can configure custom keybindings to open repositories in your preferred tools. Actions are defined in the `[keybindings]` section of your config file.
+
+**Default Actions:**
+- `l` - Open in Lazygit
+- `c` - Open in VS Code  
+- `t` - Open terminal in repository directory
+
+**Example Configuration:**
+```toml
+[[keybindings.actions]]
+name = "Lazygit"
+key = "l"
+command = "lazygit"
+args = ["-p", "{path}"]
+description = "Open repository in Lazygit"
+
+[[keybindings.actions]]
+name = "VS Code"
+key = "c" 
+command = "code"
+args = ["{path}"]
+description = "Open repository in VS Code"
+
+[[keybindings.actions]]
+name = "Terminal"
+key = "t"
+command = "gnome-terminal"
+args = ["--working-directory={path}"]
+description = "Open terminal in repository directory"
+
+# Add your own custom actions
+[[keybindings.actions]]
+name = "GitHub Desktop"
+key = "g"
+command = "github-desktop"
+args = ["{path}"]
+description = "Open repository in GitHub Desktop"
+
+[[keybindings.actions]]
+name = "Custom Script"
+key = "s"
+command = "/path/to/your/script.sh"
+args = ["{path}", "--verbose"]
+description = "Run custom script on repository"
+```
+
+**Configuration Details:**
+- `name`: Display name for the action
+- `key`: Single character key binding (avoid conflicts with built-in keys)
+- `command`: Command to execute
+- `args`: Array of command arguments
+- `description`: Help text description
+- `{path}`: Placeholder that gets replaced with the actual repository path
+
+**Built-in Keys to Avoid:**
+- Navigation: `↑`, `↓`, `j`, `k`, `h`, `l` (if you want vim-style navigation)
+- Actions: `a`, `e`, `w`, `d`, `r`, `q`, `?`, `Enter`, `Esc`, `Space`
+
+The help text at the bottom of the screen will automatically update to show your configured actions.
 
 ## Architecture
 

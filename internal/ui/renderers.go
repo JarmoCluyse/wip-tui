@@ -1,29 +1,25 @@
 package ui
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/charmbracelet/lipgloss"
-	"github.com/jarmocluyse/wip-tui/internal/explorer"
+	"github.com/jarmocluyse/wip-tui/internal/config"
 	"github.com/jarmocluyse/wip-tui/internal/git"
 	"github.com/jarmocluyse/wip-tui/internal/repository"
 	"github.com/jarmocluyse/wip-tui/internal/theme"
-	"github.com/jarmocluyse/wip-tui/internal/ui/header"
-	"github.com/jarmocluyse/wip-tui/internal/ui/repo"
+	"github.com/jarmocluyse/wip-tui/internal/ui/pages/explore"
+	"github.com/jarmocluyse/wip-tui/internal/ui/pages/home"
+	repomanagement "github.com/jarmocluyse/wip-tui/internal/ui/pages/repo-management"
+	"github.com/jarmocluyse/wip-tui/internal/ui/types"
 )
 
-type ExplorerItem = explorer.Item
+type ExplorerItem = explore.Item
 
 type ListViewRenderer struct {
-	styles StyleConfig
-	theme  theme.Theme
-	header *header.Renderer
-	repo   *repo.Renderer
+	homeRenderer *home.Renderer
 }
 
+// NewListViewRenderer creates a new list view renderer with the given styles and theme.
 func NewListViewRenderer(styles StyleConfig, themeConfig theme.Theme) *ListViewRenderer {
-	repoStyles := repo.StyleConfig{
+	homeStyles := home.StyleConfig{
 		Item:              styles.Item,
 		SelectedItem:      styles.SelectedItem,
 		StatusUncommitted: styles.StatusUncommitted,
@@ -37,319 +33,66 @@ func NewListViewRenderer(styles StyleConfig, themeConfig theme.Theme) *ListViewR
 		Border:            styles.Border,
 	}
 	return &ListViewRenderer{
-		styles: styles,
-		theme:  themeConfig,
-		header: header.NewRenderer(themeConfig),
-		repo:   repo.NewRenderer(repoStyles, themeConfig),
+		homeRenderer: home.NewRenderer(homeStyles, themeConfig),
 	}
 }
 
-func (r *ListViewRenderer) Render(repositories []repository.Repository, cursor int, width int) string {
-	content := r.header.RenderWithSpacing("Git Repository Status", width)
-
-	if len(repositories) == 0 {
-		content += r.renderEmptyState()
-	} else {
-		content += r.renderRepositoryList(repositories, cursor, width)
-	}
-
-	// Position help at bottom of terminal
-	help := r.renderHelp()
-
-	// Use lipgloss to place content and help
-	return lipgloss.JoinVertical(lipgloss.Left,
-		content,
-		lipgloss.Place(120, 1, lipgloss.Left, lipgloss.Bottom, help),
-	)
+// Render renders the repository list with the given cursor position and dimensions.
+func (r *ListViewRenderer) Render(repositories []repository.Repository, cursor int, width, height int, actions []config.Action) string {
+	return r.homeRenderer.RenderRepositoryList(repositories, cursor, width, height, actions)
 }
 
-func (r *ListViewRenderer) RenderNavigable(items []NavigableItem, cursor int, width, height int, gitChecker git.StatusChecker) string {
-	title := r.header.Render("Git Repository Status", width)
-
-	var mainContent string
-	if len(items) == 0 {
-		mainContent = r.renderEmptyState()
-	} else {
-		mainContent = r.renderNavigableItemList(items, cursor, width, gitChecker)
-	}
-
-	// Position help at bottom of terminal
-	help := r.renderHelp()
-
-	// Use actual terminal dimensions with fallbacks
-	if height == 0 {
-		height = 24
-	}
-	if width == 0 {
-		width = 120
-	}
-
-	// Calculate lines used
-	titleLines := strings.Count(title, "\n") + 1
-	contentLines := strings.Count(mainContent, "\n") + 1
-	helpLines := strings.Count(help, "\n") + 1
-	usedLines := titleLines + 2 + contentLines + helpLines // +2 for spacing after title
-
-	// Calculate empty lines needed to push help to very bottom
-	emptyLines := height - usedLines + 1 // +1 to push it to the very last line
-	if emptyLines < 0 {
-		emptyLines = 0
-	}
-
-	// Build the full view
-	fullContent := title + "\n\n" + mainContent
-	if emptyLines > 0 {
-		fullContent += strings.Repeat("\n", emptyLines)
-	}
-	fullContent += help
-
-	return fullContent
-}
-
-func (r *ListViewRenderer) renderNavigableItemList(items []NavigableItem, cursor int, width int, gitChecker git.StatusChecker) string {
-	var content string
-	i := 0
-
-	for i < len(items) {
-		item := items[i]
-
-		if item.Type == "repository" && item.Repository.IsBare {
-			// Start of bare repository group - collect all items in this group
-			groupContent := r.renderNavigableItem(item, i, cursor, width, gitChecker)
-
-			// Add all worktrees that belong to this bare repository
-			j := i + 1
-			for j < len(items) && items[j].Type == "worktree" && items[j].ParentRepo.Path == item.Repository.Path {
-				groupContent += "\n" + r.renderNavigableItem(items[j], j, cursor, width, gitChecker)
-				j++
-			}
-
-			// No border - just add the group content directly
-			content += groupContent + "\n"
-
-			// Move index to after the group
-			i = j
-		} else {
-			// Regular item (non-bare repository or standalone worktree)
-			content += r.renderNavigableItem(item, i, cursor, width, gitChecker) + "\n"
-			i++
-		}
-	}
-
-	return content
-}
-
-func (r *ListViewRenderer) renderNavigableItem(item NavigableItem, index, cursor int, width int, gitChecker git.StatusChecker) string {
-	isSelected := index == cursor
-	cursorIndicator := r.getCursorIndicator(isSelected)
-
-	if item.Type == "repository" {
-		return r.repo.RenderRepositoryOnly(*item.Repository, isSelected, cursorIndicator, width)
-	} else if item.Type == "worktree" {
-		wt := item.WorktreeInfo
-		parentName := item.ParentRepo.Name
-
-		return r.repo.RenderWorktree(*wt, parentName, item.ParentRepo.Path, isSelected, cursorIndicator, item.IsLast, width, gitChecker)
-	}
-
-	return ""
-}
-
-func (r *ListViewRenderer) renderEmptyState() string {
-	return r.styles.Item.Render("No repositories configured.") + "\n\n"
-}
-
-func (r *ListViewRenderer) renderRepositoryList(repositories []repository.Repository, cursor int, width int) string {
-	var content string
-	for i, repo := range repositories {
-		content += r.renderRepositoryItem(repo, i, cursor, width)
-	}
-	return content
-}
-
-func (r *ListViewRenderer) renderRepositoryItem(repo repository.Repository, index, cursor int, width int) string {
-	isSelected := index == cursor
-	cursorIndicator := r.getCursorIndicator(isSelected)
-	return r.repo.RenderRepository(repo, isSelected, cursorIndicator, width)
-}
-
-func (r *ListViewRenderer) getCursorIndicator(isSelected bool) string {
-	if isSelected {
-		return ">"
-	}
-	return " "
-}
-
-func (r *ListViewRenderer) getItemStyle(isSelected bool) lipgloss.Style {
-	if isSelected {
-		return r.styles.SelectedItem
-	}
-	return r.styles.Item
-}
-
-func (r *ListViewRenderer) renderHelp() string {
-	return r.styles.Help.Render("a: add  e: explore  d: delete  r: refresh  l: lazygit  q: quit  ?: help")
+// RenderNavigable renders the navigable items list with the given cursor position and dimensions.
+func (r *ListViewRenderer) RenderNavigable(items []types.NavigableItem, cursor int, width, height int, gitChecker git.StatusChecker, actions []config.Action) string {
+	return r.homeRenderer.RenderNavigableList(items, cursor, width, height, gitChecker, actions)
 }
 
 type ExplorerViewRenderer struct {
-	styles StyleConfig
-	theme  theme.Theme
-	header *header.Renderer
+	exploreRenderer *explore.Renderer
 }
 
+// NewExplorerViewRenderer creates a new explorer view renderer with the given styles and theme.
 func NewExplorerViewRenderer(styles StyleConfig, themeConfig theme.Theme) *ExplorerViewRenderer {
+	exploreStyles := explore.StyleConfig{
+		Item:              styles.Item,
+		SelectedItem:      styles.SelectedItem,
+		StatusUncommitted: styles.StatusUncommitted,
+		StatusUnpushed:    styles.StatusUnpushed,
+		StatusUntracked:   styles.StatusUntracked,
+		StatusError:       styles.StatusError,
+		StatusClean:       styles.StatusClean,
+		StatusNotAdded:    styles.StatusNotAdded,
+		Help:              styles.Help,
+	}
 	return &ExplorerViewRenderer{
-		styles: styles,
-		theme:  themeConfig,
-		header: header.NewRenderer(themeConfig),
+		exploreRenderer: explore.NewRenderer(exploreStyles, themeConfig),
 	}
 }
 
-func (r *ExplorerViewRenderer) Render(currentPath string, items []ExplorerItem, cursor int, width int) string {
-	content := r.header.RenderWithSpacing("Repository Explorer", width)
-	content += r.styles.Help.Render(fmt.Sprintf("Current: %s", currentPath)) + "\n\n"
-
-	if len(items) == 0 {
-		content += r.styles.Item.Render("Directory is empty or cannot be read.") + "\n\n"
-	} else {
-		content += r.renderItemList(items, cursor)
-	}
-
-	content += r.renderExplorerHelp()
-	return content
+// Render renders the directory explorer with the current path, items, and cursor position.
+func (r *ExplorerViewRenderer) Render(currentPath string, items []ExplorerItem, cursor int, width, height int) string {
+	return r.exploreRenderer.Render(currentPath, items, cursor, width, height)
 }
 
-func (r *ExplorerViewRenderer) renderItemList(items []ExplorerItem, cursor int) string {
-	var content string
-	for i, item := range items {
-		content += r.renderExplorerItem(item, i, cursor)
-	}
-	return content
+type RepoManagementViewRenderer struct {
+	repoManagementRenderer *repomanagement.Renderer
 }
 
-func (r *ExplorerViewRenderer) renderExplorerItem(item ExplorerItem, index, cursor int) string {
-	isSelected := index == cursor
-	cursorIndicator := r.getCursorIndicator(isSelected)
-	style := r.getItemStyle(isSelected)
-
-	icon := r.getItemIcon(item)
-	status := r.getItemStatus(item)
-
-	line := fmt.Sprintf("%s %s%s", cursorIndicator, icon, item.Name)
-	if status != "" {
-		line += " " + status
+// NewRepoManagementViewRenderer creates a new repository management view renderer with the given styles and theme.
+func NewRepoManagementViewRenderer(styles StyleConfig, themeConfig theme.Theme) *RepoManagementViewRenderer {
+	repoManagementStyles := repomanagement.StyleConfig{
+		Item:         styles.Item,
+		SelectedItem: styles.SelectedItem,
+		EmptyState:   styles.Help,   // Reuse help style for empty state
+		SectionTitle: styles.Border, // Reuse border style for section title
+		Help:         styles.Help,
 	}
-
-	content := style.Render(line) + "\n"
-	return content
-}
-
-func (r *ExplorerViewRenderer) getCursorIndicator(isSelected bool) string {
-	if isSelected {
-		return ">"
-	}
-	return " "
-}
-
-func (r *ExplorerViewRenderer) getItemStyle(isSelected bool) lipgloss.Style {
-	if isSelected {
-		return r.styles.SelectedItem
-	}
-	return r.styles.Item
-}
-
-func (r *ExplorerViewRenderer) getItemIcon(item ExplorerItem) string {
-	if item.Name == ".." {
-		return "📁 "
-	}
-	if item.IsWorktree {
-		return "🌳 "
-	}
-	if item.IsDirectory {
-		return "📁 "
-	}
-	if item.IsGitRepo {
-		return "🔗 "
-	}
-	return "📄 "
-}
-
-func (r *ExplorerViewRenderer) getItemStatus(item ExplorerItem) string {
-	if !item.IsGitRepo {
-		return ""
-	}
-
-	// For worktrees, show detailed status
-	if item.IsWorktree {
-		return r.getWorktreeStatus(item)
-	}
-
-	// For regular repos, show added/not added status
-	if item.IsAdded {
-		return r.styles.StatusClean.Render(r.theme.Indicators.Clean)
-	}
-
-	return r.styles.StatusNotAdded.Render(r.theme.Indicators.NotAdded)
-}
-
-func (r *ExplorerViewRenderer) getWorktreeStatus(item ExplorerItem) string {
-	if item.HasError {
-		return r.styles.StatusError.Render(r.theme.Indicators.Error)
-	}
-
-	var status []string
-
-	if item.HasUncommitted {
-		status = append(status, r.styles.StatusUncommitted.Render(r.theme.Indicators.Dirty))
-	}
-
-	if item.HasUnpushed {
-		status = append(status, r.styles.StatusUnpushed.Render(r.theme.Indicators.Unpushed))
-	}
-
-	if item.HasUntracked {
-		status = append(status, r.styles.StatusUntracked.Render(r.theme.Indicators.Untracked))
-	}
-
-	if len(status) == 0 {
-		if item.IsAdded {
-			return r.styles.StatusClean.Render(r.theme.Indicators.Clean)
-		}
-		return r.styles.StatusNotAdded.Render(r.theme.Indicators.NotAdded)
-	}
-
-	return strings.Join(status, " ")
-}
-
-func (r *ExplorerViewRenderer) renderExplorerHelp() string {
-	help := r.styles.Help.Render("\nControls:")
-	help += r.styles.Help.Render("  ↑/k: move up   ↓/j: move down   Enter: navigate")
-	help += r.styles.Help.Render("  Space: toggle Git repo   Esc/q: back to list")
-	help += r.styles.Help.Render("\nIcons:")
-	help += r.styles.Help.Render(fmt.Sprintf("  📁: directory   🔗: Git repo   🌳: worktree   📄: file"))
-	help += r.styles.Help.Render(fmt.Sprintf("  %s: added   %s: not added   %s: uncommitted   %s: unpushed   %s: untracked   %s: error",
-		r.theme.Indicators.Clean, r.theme.Indicators.NotAdded, r.theme.Indicators.Dirty, r.theme.Indicators.Unpushed, r.theme.Indicators.Untracked, r.theme.Indicators.Error))
-	return help
-}
-
-type AddRepoViewRenderer struct {
-	styles StyleConfig
-	theme  theme.Theme
-	header *header.Renderer
-}
-
-func NewAddRepoViewRenderer(styles StyleConfig, themeConfig theme.Theme) *AddRepoViewRenderer {
-	return &AddRepoViewRenderer{
-		styles: styles,
-		theme:  themeConfig,
-		header: header.NewRenderer(themeConfig),
+	return &RepoManagementViewRenderer{
+		repoManagementRenderer: repomanagement.NewRenderer(repoManagementStyles, themeConfig),
 	}
 }
 
-func (r *AddRepoViewRenderer) Render(prompt, input string, width int) string {
-	content := r.header.RenderWithSpacing("Add Repository", width)
-	content += prompt + "\n"
-	content += r.styles.Input.Render(input+"█") + "\n\n"
-	content += r.styles.Help.Render("Press Enter to add, Esc to cancel")
-	return content
+// Render renders the repository management view with the given repositories and cursor position.
+func (r *RepoManagementViewRenderer) Render(repositories []repository.Repository, cursor int, width, height int) string {
+	return r.repoManagementRenderer.Render(repositories, cursor, width, height)
 }

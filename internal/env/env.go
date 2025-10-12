@@ -1,3 +1,4 @@
+// Package env provides environment variable loading and terminal setup utilities.
 package env
 
 import (
@@ -6,7 +7,8 @@ import (
 	"strings"
 )
 
-// LoadEnvFile loads environment variables from .env and .env.development files
+// LoadEnvFile loads environment variables from .env and .env.development files.
+// The .env.development file values override .env values if both exist.
 func LoadEnvFile() {
 	// Load base .env file first
 	loadEnvFromFile(".env")
@@ -15,7 +17,8 @@ func LoadEnvFile() {
 	loadEnvFromFile(".env.development")
 }
 
-// loadEnvFromFile loads environment variables from a specific file
+// loadEnvFromFile loads environment variables from a specific file.
+// Env files are optional - missing files are silently ignored.
 func loadEnvFromFile(filename string) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -45,7 +48,8 @@ func loadEnvFromFile(filename string) {
 	}
 }
 
-// SetupTerminal sets environment variables to prevent terminal query issues
+// SetupTerminal sets environment variables to prevent terminal query issues.
+// This ensures consistent color and terminal capabilities across different environments.
 func SetupTerminal() {
 	// Prevent terminal from querying capabilities that can cause escape sequences
 	os.Setenv("COLORTERM", "truecolor")

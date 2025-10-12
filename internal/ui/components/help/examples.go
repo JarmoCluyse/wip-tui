@@ -1,0 +1,42 @@
+package help
+
+// Example of how to use the detailed help functionality
+// This can be used when implementing a help modal (triggered by '?' key)
+
+/*
+Example usage for detailed help modal:
+
+helpBuilder := help.NewBuilder(styles.Help)
+
+sections := []help.HelpSection{
+	{
+		Title: "Navigation",
+		Bindings: []help.KeyBinding{
+			{"↑", "move up"},
+			{"↓", "move down"},
+			{"k", "move up (vim style)"},
+			{"j", "move down (vim style)"},
+			{"Enter", "select item"},
+		},
+	},
+	{
+		Title: "Repository Management",
+		Bindings: []help.KeyBinding{
+			{"a", "manage repositories"},
+			{"e", "explore directories"},
+			{"d", "delete repository"},
+			{"r", "refresh status"},
+		},
+	},
+	{
+		Title: "General",
+		Bindings: []help.KeyBinding{
+			{"Esc", "go back"},
+			{"q", "quit application"},
+			{"?", "show/hide this help"},
+		},
+	},
+}
+
+detailedHelp := helpBuilder.BuildDetailedHelp(sections)
+*/

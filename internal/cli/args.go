@@ -1,3 +1,4 @@
+// Package cli provides command line argument parsing functionality.
 package cli
 
 import (
@@ -6,20 +7,20 @@ import (
 	"os"
 )
 
-// Args holds all parsed command line arguments
+// Args holds all parsed command line arguments.
 type Args struct {
 	ConfigPath string
 	Help       bool
 	Version    bool
 }
 
-// Parser handles CLI argument parsing
+// Parser handles CLI argument parsing.
 type Parser struct {
 	flagSet *flag.FlagSet
 	args    *Args
 }
 
-// NewParser creates a new CLI argument parser
+// NewParser creates a new CLI argument parser.
 func NewParser() *Parser {
 	args := &Args{}
 	flagSet := flag.NewFlagSet("git-tui", flag.ExitOnError)
@@ -42,7 +43,7 @@ func NewParser() *Parser {
 	}
 }
 
-// Define configures all available command line arguments
+// Define configures all available command line arguments.
 func (p *Parser) Define() {
 	p.flagSet.StringVar(&p.args.ConfigPath, "config", "", "Path to configuration file")
 	p.flagSet.StringVar(&p.args.ConfigPath, "c", "", "Path to configuration file (shorthand)")
@@ -52,7 +53,7 @@ func (p *Parser) Define() {
 	p.flagSet.BoolVar(&p.args.Version, "v", false, "Show version information (shorthand)")
 }
 
-// Parse processes the command line arguments
+// Parse processes the command line arguments.
 func (p *Parser) Parse(args []string) (*Args, error) {
 	if err := p.flagSet.Parse(args); err != nil {
 		return nil, err
@@ -72,12 +73,12 @@ func (p *Parser) Parse(args []string) (*Args, error) {
 	return p.args, nil
 }
 
-// ParseFromOS parses arguments from os.Args
+// ParseFromOS parses arguments from os.Args.
 func (p *Parser) ParseFromOS() (*Args, error) {
 	return p.Parse(os.Args[1:])
 }
 
-// GetArgs returns the current parsed arguments
+// GetArgs returns the current parsed arguments.
 func (p *Parser) GetArgs() *Args {
 	return p.args
 }

@@ -7,13 +7,14 @@ import (
 	"github.com/jarmocluyse/wip-tui/internal/ui"
 )
 
-// AppDependencies implements the ui.Dependencies interface
+// AppDependencies implements the ui.Dependencies interface.
 type AppDependencies struct {
 	configService config.ConfigService
 	statusUpdater *repository.StatusUpdater
 	gitChecker    git.StatusChecker
 }
 
+// NewAppDependencies creates a new dependency container with services.
 func NewAppDependencies(configPath string) *AppDependencies {
 	var configService config.ConfigService
 	if configPath != "" {
@@ -32,14 +33,17 @@ func NewAppDependencies(configPath string) *AppDependencies {
 	}
 }
 
+// GetConfigService returns the configuration service.
 func (d *AppDependencies) GetConfigService() config.ConfigService {
 	return d.configService
 }
 
+// GetStatusUpdater returns the repository status updater.
 func (d *AppDependencies) GetStatusUpdater() *repository.StatusUpdater {
 	return d.statusUpdater
 }
 
+// GetGitChecker returns the git status checker.
 func (d *AppDependencies) GetGitChecker() git.StatusChecker {
 	return d.gitChecker
 }

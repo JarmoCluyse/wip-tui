@@ -1,12 +1,13 @@
+// Package theme provides theming configuration for the application.
 package theme
 
-// Theme represents the complete theme configuration
+// Theme represents the complete theme configuration.
 type Theme struct {
 	Colors     Colors     `toml:"colors"`
 	Indicators Indicators `toml:"indicators"`
 }
 
-// Colors defines all color values used in the UI
+// Colors defines all color values used in the UI.
 type Colors struct {
 	Title           string `toml:"title"`
 	TitleBackground string `toml:"title_background"`
@@ -23,7 +24,7 @@ type Colors struct {
 	Branch          string `toml:"branch"`
 }
 
-// Indicators defines all status indicator symbols
+// Indicators defines all status indicator symbols.
 type Indicators struct {
 	Clean     string `toml:"clean"`
 	Dirty     string `toml:"dirty"`
@@ -33,7 +34,7 @@ type Indicators struct {
 	NotAdded  string `toml:"not_added"`
 }
 
-// Default returns the default theme configuration
+// Default returns the default theme configuration.
 func Default() Theme {
 	return Theme{
 		Colors: Colors{
@@ -62,7 +63,7 @@ func Default() Theme {
 	}
 }
 
-// MergeWithDefault takes a user theme and fills in any missing values with defaults
+// MergeWithDefault takes a user theme and fills in any missing values with defaults.
 func MergeWithDefault(userTheme Theme) Theme {
 	defaultTheme := Default()
 

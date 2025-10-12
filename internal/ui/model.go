@@ -7,14 +7,16 @@ import (
 	"github.com/jarmocluyse/wip-tui/internal/git"
 	"github.com/jarmocluyse/wip-tui/internal/repository"
 	"github.com/jarmocluyse/wip-tui/internal/theme"
+	"github.com/jarmocluyse/wip-tui/internal/ui/types"
 )
 
 type ViewState int
 
 const (
 	ListView ViewState = iota
-	AddRepoView
+	RepoManagementView
 	ExplorerView
+	DetailsView
 )
 
 // Dependencies interface defines what the UI needs from the application layer
@@ -29,6 +31,7 @@ type Model struct {
 	Config           *config.Config
 	RepoHandler      *repository.Handler
 	State            ViewState
+	PreviousState    ViewState // Track the previous state for navigation
 	Cursor           int
 	ScrollOffset     int // New field for scrolling
 	InputField       string
@@ -40,16 +43,9 @@ type Model struct {
 	Width            int
 	Height           int
 	Err              error
-	CachedNavItems   []NavigableItem // Cache for navigable items
-	NavItemsNeedSync bool            // Flag to indicate cache needs update
-}
-
-type NavigableItem struct {
-	Type         string // "repository" or "worktree"
-	Repository   *repository.Repository
-	WorktreeInfo *git.WorktreeInfo
-	ParentRepo   *repository.Repository // For worktrees, reference to parent bare repo
-	IsLast       bool                   // For worktrees, indicates if this is the last worktree for the parent repo
+	CachedNavItems   []types.NavigableItem // Cache for navigable items
+	NavItemsNeedSync bool                  // Flag to indicate cache needs update
+	SelectedNavItem  *types.NavigableItem  // Currently selected item for details view
 }
 
 type StatusMessage struct {
@@ -75,6 +71,7 @@ type StyleConfig struct {
 	Border            lipgloss.Style
 }
 
+// CreateStyleConfig creates a new StyleConfig using the provided theme configuration.
 func CreateStyleConfig(themeConfig theme.Theme) StyleConfig {
 	return StyleConfig{
 		Item: lipgloss.NewStyle().
