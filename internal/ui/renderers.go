@@ -5,6 +5,7 @@ import (
 	"github.com/jarmocluyse/wip-tui/internal/git"
 	"github.com/jarmocluyse/wip-tui/internal/repository"
 	"github.com/jarmocluyse/wip-tui/internal/theme"
+	actionconfig "github.com/jarmocluyse/wip-tui/internal/ui/pages/action-config"
 	"github.com/jarmocluyse/wip-tui/internal/ui/pages/explore"
 	"github.com/jarmocluyse/wip-tui/internal/ui/pages/home"
 	repomanagement "github.com/jarmocluyse/wip-tui/internal/ui/pages/repo-management"
@@ -31,6 +32,9 @@ func NewListViewRenderer(styles StyleConfig, themeConfig theme.Theme) *ListViewR
 		Help:              styles.Help,
 		Branch:            styles.Branch,
 		Border:            styles.Border,
+		IconRegular:       styles.IconRegular,
+		IconBare:          styles.IconBare,
+		IconWorktree:      styles.IconWorktree,
 	}
 	return &ListViewRenderer{
 		homeRenderer: home.NewRenderer(homeStyles, themeConfig),
@@ -63,6 +67,10 @@ func NewExplorerViewRenderer(styles StyleConfig, themeConfig theme.Theme) *Explo
 		StatusClean:       styles.StatusClean,
 		StatusNotAdded:    styles.StatusNotAdded,
 		Help:              styles.Help,
+		Branch:            styles.Branch,
+		IconRegular:       styles.IconRegular,
+		IconBare:          styles.IconBare,
+		IconWorktree:      styles.IconWorktree,
 	}
 	return &ExplorerViewRenderer{
 		exploreRenderer: explore.NewRenderer(exploreStyles, themeConfig),
@@ -95,4 +103,36 @@ func NewRepoManagementViewRenderer(styles StyleConfig, themeConfig theme.Theme) 
 // Render renders the repository management view with the given repositories and cursor position.
 func (r *RepoManagementViewRenderer) Render(repositories []repository.Repository, cursor int, width, height int) string {
 	return r.repoManagementRenderer.Render(repositories, cursor, width, height)
+}
+
+type ActionConfigViewRenderer struct {
+	actionConfigRenderer *actionconfig.Renderer
+}
+
+// NewActionConfigViewRenderer creates a new action config view renderer with the given styles and theme.
+func NewActionConfigViewRenderer(styles StyleConfig, themeConfig theme.Theme) *ActionConfigViewRenderer {
+	actionConfigStyles := actionconfig.StyleConfig{
+		Item:          styles.Item,
+		SelectedItem:  styles.SelectedItem,
+		SectionTitle:  styles.Border, // Reuse border style for section title
+		Help:          styles.Help,
+		Border:        styles.Border,
+		EmptyState:    styles.Help, // Reuse help style for empty state
+		Input:         styles.Item,
+		InputPrompt:   styles.Item.Bold(true),
+		ActionKey:     styles.Item.Bold(true),
+		ActionCommand: styles.Help, // Dimmed style for command
+		ActionDesc:    styles.Help, // Dimmed style for description
+	}
+	return &ActionConfigViewRenderer{
+		actionConfigRenderer: actionconfig.NewRenderer(actionConfigStyles, themeConfig),
+	}
+}
+
+// Render renders the action configuration view.
+func (r *ActionConfigViewRenderer) Render(actions []config.Action, cursor int, editMode bool, editingAction *config.Action, fieldIdx int, width, height int) string {
+	if editMode && editingAction != nil {
+		return r.actionConfigRenderer.RenderActionEditor(editingAction, fieldIdx, width, height, false)
+	}
+	return r.actionConfigRenderer.Render(actions, cursor, width, height)
 }

@@ -25,6 +25,9 @@ type StatusChecker interface {
 	HasUnpushedCommits(path string) bool
 	HasUntrackedFiles(path string) bool
 	GetCurrentBranch(path string) string
+	CountUncommittedChanges(path string) int
+	CountUnpushedCommits(path string) int
+	CountUntrackedFiles(path string) int
 }
 
 // CommandLineChecker implements StatusChecker using Git command line.
@@ -239,6 +242,57 @@ func (g *CommandLineChecker) GetCurrentBranch(path string) string {
 		return "unknown"
 	}
 	return strings.TrimSpace(string(output))
+}
+
+// CountUncommittedChanges returns the number of files with uncommitted changes (tracked files only).
+func (g *CommandLineChecker) CountUncommittedChanges(path string) int {
+	output, err := g.runGitCommand(path, "status", "--porcelain")
+	if err != nil {
+		return 0
+	}
+
+	count := 0
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		// Skip untracked files (lines starting with ??)
+		// Count modified files (M), added files (A), deleted files (D), renamed files (R), etc.
+		if len(line) >= 2 && !strings.HasPrefix(line, "??") && strings.TrimSpace(line) != "" {
+			count++
+		}
+	}
+	return count
+}
+
+// CountUnpushedCommits returns the number of unpushed commits.
+func (g *CommandLineChecker) CountUnpushedCommits(path string) int {
+	// First try counting with log command
+	output, err := g.runGitCommand(path, "log", "--oneline", "@{u}..")
+	if err != nil {
+		return 0
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) == 1 && lines[0] == "" {
+		return 0
+	}
+	return len(lines)
+}
+
+// CountUntrackedFiles returns the number of untracked files.
+func (g *CommandLineChecker) CountUntrackedFiles(path string) int {
+	output, err := g.runGitCommand(path, "status", "--porcelain")
+	if err != nil {
+		return 0
+	}
+
+	count := 0
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "??") {
+			count++
+		}
+	}
+	return count
 }
 
 // runGitCommand executes a git command in the specified directory.

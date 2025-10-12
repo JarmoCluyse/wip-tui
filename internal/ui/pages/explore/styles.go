@@ -16,6 +16,10 @@ type StyleConfig struct {
 	StatusClean       lipgloss.Style
 	StatusNotAdded    lipgloss.Style
 	Help              lipgloss.Style
+	Branch            lipgloss.Style
+	IconRegular       lipgloss.Style
+	IconBare          lipgloss.Style
+	IconWorktree      lipgloss.Style
 }
 
 // CreateStyleConfig creates a style configuration for the explore page
@@ -47,5 +51,16 @@ func CreateStyleConfig(themeConfig theme.Theme) StyleConfig {
 		Help: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(themeConfig.Colors.Help)).
 			Margin(1, 0),
+		Branch: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(themeConfig.Colors.Branch)),
+		IconRegular: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(themeConfig.Colors.IconRegular)).
+			Bold(true),
+		IconBare: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(themeConfig.Colors.IconBare)).
+			Bold(true),
+		IconWorktree: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(themeConfig.Colors.IconWorktree)).
+			Bold(true),
 	}
 }

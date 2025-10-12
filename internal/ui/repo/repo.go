@@ -11,6 +11,26 @@ import (
 	"github.com/jarmocluyse/wip-tui/internal/theme"
 )
 
+// ItemType represents the type of item being rendered
+type ItemType int
+
+const (
+	ItemTypeRepository ItemType = iota
+	ItemTypeWorktree
+	ItemTypeWorktreeInTree
+)
+
+// RenderableItem represents any item that can be rendered (repository or worktree)
+type RenderableItem struct {
+	Type         ItemType
+	Repository   *repository.Repository
+	Worktree     *git.WorktreeInfo
+	ParentName   string // For worktrees, the name of the parent repository
+	BareRepoPath string // For worktrees, the path to the bare repository
+	IsLast       bool   // For tree rendering, whether this is the last item
+	RelativePath string // For worktrees, relative path to display
+}
+
 // Renderer handles rendering of repository items and worktrees
 type Renderer struct {
 	styles StyleConfig
@@ -30,6 +50,9 @@ type StyleConfig struct {
 	Help              lipgloss.Style
 	Branch            lipgloss.Style
 	Border            lipgloss.Style
+	IconRegular       lipgloss.Style
+	IconBare          lipgloss.Style
+	IconWorktree      lipgloss.Style
 }
 
 // NewRenderer creates a new repo renderer with the given styles and theme
@@ -40,154 +63,88 @@ func NewRenderer(styles StyleConfig, themeConfig theme.Theme) *Renderer {
 	}
 }
 
-// RenderRepository renders a repository item with cursor indication and selection
-// This is the old method that includes worktrees - kept for backward compatibility
-func (r *Renderer) RenderRepository(repo repository.Repository, isSelected bool, cursorIndicator string, width int) string {
+// RenderItem renders any type of item (repository or worktree) with consistent formatting
+func (r *Renderer) RenderItem(item RenderableItem, isSelected bool, cursorIndicator string, width int, gitChecker git.StatusChecker) string {
 	style := r.getItemStyle(isSelected)
-	statusIndicator := r.getStatusIndicator(repo)
 
-	// Get icon for repository
-	var icon string
-	if repo.IsBare {
-		icon = "📁"
-	} else if repo.IsWorktree {
-		icon = "🌳"
-	} else {
-		icon = "🔗"
-	}
+	var iconRendered, name, branchInfo, status, treePrefix string
 
-	// Get branch information for non-bare repositories
-	var branchInfo string
-	if !repo.IsBare {
-		gitChecker := git.NewChecker()
-		branch := gitChecker.GetCurrentBranch(repo.Path)
-		if branch != "" && branch != "unknown" {
-			branchInfo = r.styles.Branch.Render(" 🌿 " + branch)
+	switch item.Type {
+	case ItemTypeRepository:
+		repo := item.Repository
+		// Get repository icon (don't apply color styling if selected - let the main style handle it)
+		var iconText string
+		if repo.IsBare {
+			iconText = r.theme.Icons.Repository.Bare
+			if !isSelected {
+				iconRendered = r.styles.IconBare.Render(iconText)
+			} else {
+				iconRendered = iconText
+			}
+		} else if repo.IsWorktree {
+			iconText = r.theme.Icons.Repository.Worktree
+			if !isSelected {
+				iconRendered = r.styles.IconWorktree.Render(iconText)
+			} else {
+				iconRendered = iconText
+			}
+		} else {
+			iconText = r.theme.Icons.Repository.Regular
+			if !isSelected {
+				iconRendered = r.styles.IconRegular.Render(iconText)
+			} else {
+				iconRendered = iconText
+			}
+		}
+
+		name = repo.Name
+		status = r.getStatusIndicator(*repo)
+
+		// Get branch info for non-bare repositories
+		if !repo.IsBare {
+			if gitChecker == nil {
+				gitChecker = git.NewChecker()
+			}
+			branch := gitChecker.GetCurrentBranch(repo.Path)
+			if branch != "" && branch != "unknown" {
+				branchText := " " + r.theme.Icons.Branch.Icon + " " + branch
+				branchInfo = r.styles.Branch.Render(branchText)
+			}
+		}
+
+	case ItemTypeWorktree, ItemTypeWorktreeInTree:
+		wt := item.Worktree
+		iconText := r.theme.Icons.Repository.Worktree
+		if !isSelected {
+			iconRendered = r.styles.IconWorktree.Render(iconText)
+		} else {
+			iconRendered = iconText
+		}
+
+		if item.RelativePath != "" {
+			name = item.RelativePath
+		} else {
+			name = r.getRelativePathToBareRepo(wt.Path, item.BareRepoPath)
+		}
+
+		branchText := " " + r.theme.Icons.Branch.Icon + " " + wt.Branch
+		branchInfo = r.styles.Branch.Render(branchText)
+		status = r.getWorktreeStatusIndicators(wt.Path, gitChecker)
+
+		// Add tree structure for worktrees in tree view
+		if item.Type == ItemTypeWorktreeInTree {
+			if item.IsLast {
+				treePrefix = r.theme.Icons.Tree.Last + " "
+			} else {
+				treePrefix = r.theme.Icons.Tree.Branch + " "
+			}
 		}
 	}
 
 	// Create the main content without status (for left alignment)
-	leftContent := fmt.Sprintf("%s %s %s%s", cursorIndicator, icon, repo.Name, branchInfo)
+	leftContent := fmt.Sprintf("%s %s%s %s%s", cursorIndicator, treePrefix, iconRendered, name, branchInfo)
 
-	// Calculate padding to right-align status (use actual terminal width)
-	totalWidth := width
-	if totalWidth <= 0 {
-		totalWidth = 110 // fallback
-	}
-	leftWidth := lipgloss.Width(leftContent)
-	statusWidth := lipgloss.Width(statusIndicator)
-
-	// Create end-of-line selection indicator
-	var endIndicator string
-	if isSelected {
-		endIndicator = r.styles.SelectedItem.Render("█")
-	} else {
-		endIndicator = " "
-	}
-
-	endIndicatorWidth := lipgloss.Width(endIndicator)
-	padding := max(totalWidth-leftWidth-statusWidth-endIndicatorWidth-1, 1)
-
-	// Format: cursor icon name branch [padding] status endIndicator
-	line := leftContent + strings.Repeat(" ", padding) + statusIndicator + " " + endIndicator
-	content := style.Render(line)
-
-	// If this is a bare repository, add its worktrees to the content
-	if repo.IsBare {
-		// For backward compatibility, create a git checker for this old API
-		gitChecker := git.NewChecker()
-		worktreeContent := r.renderWorktrees(repo, width, gitChecker)
-		if worktreeContent != "" {
-			content += "\n" + worktreeContent
-		}
-	}
-
-	// No border - return content directly
-	return content + "\n"
-}
-
-// RenderRepositoryOnly renders just the repository without worktrees
-// Use this when worktrees are rendered separately as navigable items
-func (r *Renderer) RenderRepositoryOnly(repo repository.Repository, isSelected bool, cursorIndicator string, width int) string {
-	style := r.getItemStyle(isSelected)
-	statusIndicator := r.getStatusIndicator(repo)
-
-	// Get icon for repository
-	var icon string
-	if repo.IsBare {
-		icon = "📁"
-	} else if repo.IsWorktree {
-		icon = "🌳"
-	} else {
-		icon = "🔗"
-	}
-
-	// Get branch information for non-bare repositories
-	var branchInfo string
-	if !repo.IsBare {
-		gitChecker := git.NewChecker()
-		branch := gitChecker.GetCurrentBranch(repo.Path)
-		if branch != "" && branch != "unknown" {
-			branchInfo = r.styles.Branch.Render(" 🌿 " + branch)
-		}
-	}
-
-	// Create the main content without status (for left alignment)
-	leftContent := fmt.Sprintf("%s %s %s%s", cursorIndicator, icon, repo.Name, branchInfo)
-
-	// Calculate padding to right-align status (use actual terminal width)
-	totalWidth := width
-	if totalWidth <= 0 {
-		totalWidth = 110 // fallback
-	}
-	leftWidth := lipgloss.Width(leftContent)
-	statusWidth := lipgloss.Width(statusIndicator)
-
-	// Create end-of-line selection indicator
-	var endIndicator string
-	if isSelected {
-		endIndicator = r.styles.SelectedItem.Render("█")
-	} else {
-		endIndicator = " "
-	}
-
-	endIndicatorWidth := lipgloss.Width(endIndicator)
-	padding := max(totalWidth-leftWidth-statusWidth-endIndicatorWidth-1, 1)
-
-	// Format: cursor icon name branch [padding] status endIndicator
-	line := leftContent + strings.Repeat(" ", padding) + statusIndicator + " " + endIndicator
-	content := style.Render(line)
-
-	// Don't wrap bare repositories in border - they will be grouped with their worktrees
-	if repo.IsBare {
-		return content
-	}
-
-	// No border for regular repositories either
-	return content
-}
-
-// RenderWorktree renders a single worktree item (without border - used in navigable mode)
-func (r *Renderer) RenderWorktree(wt git.WorktreeInfo, parentName, bareRepoPath string, isSelected bool, cursorIndicator string, isLast bool, width int, gitChecker git.StatusChecker) string {
-	style := r.getItemStyle(isSelected)
-	status := r.getWorktreeStatusIndicators(wt.Path, gitChecker)
-
-	// Use relative path in the name instead of separate path line
-	relativePath := r.getRelativePathToBareRepo(wt.Path, bareRepoPath)
-	branchInfo := r.styles.Branch.Render(" 🌿 " + wt.Branch)
-
-	// Use different icon for last worktree
-	var treeIcon string
-	if isLast {
-		treeIcon = "└─"
-	} else {
-		treeIcon = "├─"
-	}
-
-	// Create the main content without status (for left alignment)
-	leftContent := fmt.Sprintf("%s %s 🌳 %s%s", cursorIndicator, treeIcon, relativePath, branchInfo)
-
-	// Calculate padding to right-align status (use actual terminal width)
+	// Calculate padding to right-align status
 	totalWidth := width
 	if totalWidth <= 0 {
 		totalWidth = 140 // fallback
@@ -204,15 +161,64 @@ func (r *Renderer) RenderWorktree(wt git.WorktreeInfo, parentName, bareRepoPath 
 	}
 
 	endIndicatorWidth := lipgloss.Width(endIndicator)
-	// -1 for space
 	padding := max(totalWidth-leftWidth-statusWidth-endIndicatorWidth-1, 1)
 
-	// Format: cursor treeIcon 🌳 path branch [padding] status endIndicator
-	line := leftContent + strings.Repeat(" ", padding) + status + " " + endIndicator
-	content := style.Render(line)
+	line := leftContent + strings.Repeat(" ", padding) + status + endIndicator
+	return style.Render(line) + "\n"
+}
 
-	// Don't wrap in border - this makes worktrees appear as part of parent repo
-	return content
+// RenderRepository renders a repository item with cursor indication and selection
+// This is the old method that includes worktrees - kept for backward compatibility
+func (r *Renderer) RenderRepository(repo repository.Repository, isSelected bool, cursorIndicator string, width int) string {
+	item := RenderableItem{
+		Type:       ItemTypeRepository,
+		Repository: &repo,
+	}
+
+	result := r.RenderItem(item, isSelected, cursorIndicator, width, nil)
+
+	// If this is a bare repository, add its worktrees to the content
+	if repo.IsBare {
+		gitChecker := git.NewChecker()
+		worktrees := r.renderWorktrees(repo, width, gitChecker)
+		result += worktrees
+	}
+
+	// Don't wrap bare repositories in border - they will be grouped with their worktrees
+	if repo.IsBare {
+		return result
+	}
+
+	// Wrap regular and worktree repositories in a border
+	return r.styles.Border.Render(result)
+}
+
+// RenderRepositoryOnly renders just the repository without worktrees
+// Use this when worktrees are rendered separately as navigable items
+func (r *Renderer) RenderRepositoryOnly(repo repository.Repository, isSelected bool, cursorIndicator string, width int) string {
+	item := RenderableItem{
+		Type:       ItemTypeRepository,
+		Repository: &repo,
+	}
+
+	// Use the unified renderer and remove the trailing newline
+	result := r.RenderItem(item, isSelected, cursorIndicator, width, nil)
+	return strings.TrimSuffix(result, "\n")
+}
+
+// RenderWorktree renders a single worktree item (without border - used in navigable mode)
+func (r *Renderer) RenderWorktree(wt git.WorktreeInfo, parentName, bareRepoPath string, isSelected bool, cursorIndicator string, isLast bool, width int, gitChecker git.StatusChecker) string {
+	item := RenderableItem{
+		Type:         ItemTypeWorktreeInTree,
+		Worktree:     &wt,
+		ParentName:   parentName,
+		BareRepoPath: bareRepoPath,
+		IsLast:       isLast,
+	}
+
+	// Remove the trailing newline since the unified function adds it
+	result := r.RenderItem(item, isSelected, cursorIndicator, width, gitChecker)
+	return strings.TrimSuffix(result, "\n")
 }
 
 // getItemStyle returns the appropriate style based on selection state.
@@ -238,19 +244,31 @@ func (r *Renderer) getStatusIndicator(repo repository.Repository) string {
 	}
 
 	if repo.IsWorktree {
-		indicators = append(indicators, r.styles.Help.Render("🌳"))
+		indicators = append(indicators, r.styles.IconWorktree.Render(r.theme.Icons.Repository.Worktree))
 	}
 
 	if repo.HasUncommitted {
-		indicators = append(indicators, r.styles.StatusUncommitted.Render(r.theme.Indicators.Dirty))
+		if repo.UncommittedCount > 0 {
+			indicators = append(indicators, r.styles.StatusUncommitted.Render(fmt.Sprintf("%s%d", r.theme.Indicators.Dirty, repo.UncommittedCount)))
+		} else {
+			indicators = append(indicators, r.styles.StatusUncommitted.Render(r.theme.Indicators.Dirty))
+		}
 	}
 
 	if repo.HasUnpushed {
-		indicators = append(indicators, r.styles.StatusUnpushed.Render(r.theme.Indicators.Unpushed))
+		if repo.UnpushedCount > 0 {
+			indicators = append(indicators, r.styles.StatusUnpushed.Render(fmt.Sprintf("%s%d", r.theme.Indicators.Unpushed, repo.UnpushedCount)))
+		} else {
+			indicators = append(indicators, r.styles.StatusUnpushed.Render(r.theme.Indicators.Unpushed))
+		}
 	}
 
 	if repo.HasUntracked {
-		indicators = append(indicators, r.styles.StatusUntracked.Render(r.theme.Indicators.Untracked))
+		if repo.UntrackedCount > 0 {
+			indicators = append(indicators, r.styles.StatusUntracked.Render(fmt.Sprintf("%s%d", r.theme.Indicators.Untracked, repo.UntrackedCount)))
+		} else {
+			indicators = append(indicators, r.styles.StatusUntracked.Render(r.theme.Indicators.Untracked))
+		}
 	}
 
 	if !repo.HasUncommitted && !repo.HasUnpushed && !repo.HasUntracked && !repo.IsBare {
@@ -292,18 +310,18 @@ func (r *Renderer) renderWorktreeItem(wt git.WorktreeInfo, repoName string, bare
 
 	// Use relative path in the name instead of separate path line
 	relativePath := r.getRelativePathToBareRepo(wt.Path, bareRepoPath)
-	branchInfo := r.styles.Branch.Render(" 🌿 " + wt.Branch)
+	branchInfo := r.styles.Branch.Render(" " + r.theme.Icons.Branch.Icon + " " + wt.Branch)
 
 	// Use different icon for last worktree
 	var treeIcon string
 	if isLast {
-		treeIcon = "└─"
+		treeIcon = r.theme.Icons.Tree.Last
 	} else {
-		treeIcon = "├─"
+		treeIcon = r.theme.Icons.Tree.Branch
 	}
 
 	// Create the main content without status (for left alignment) - increased indentation
-	leftContent := fmt.Sprintf("     %s 🌳 %s%s", treeIcon, relativePath, branchInfo)
+	leftContent := fmt.Sprintf("     %s %s %s%s", treeIcon, r.styles.IconWorktree.Render(r.theme.Icons.Repository.Worktree), relativePath, branchInfo)
 
 	// Calculate padding to right-align status (use actual terminal width)
 	totalWidth := width
@@ -342,15 +360,30 @@ func (r *Renderer) getWorktreeStatusIndicators(path string, gitChecker git.Statu
 	var indicators []string
 
 	if gitChecker.HasUncommittedChanges(path) {
-		indicators = append(indicators, r.styles.StatusUncommitted.Render(r.theme.Indicators.Dirty))
+		count := gitChecker.CountUncommittedChanges(path)
+		if count > 0 {
+			indicators = append(indicators, r.styles.StatusUncommitted.Render(fmt.Sprintf("%s%d", r.theme.Indicators.Dirty, count)))
+		} else {
+			indicators = append(indicators, r.styles.StatusUncommitted.Render(r.theme.Indicators.Dirty))
+		}
 	}
 
 	if gitChecker.HasUnpushedCommits(path) {
-		indicators = append(indicators, r.styles.StatusUnpushed.Render(r.theme.Indicators.Unpushed))
+		count := gitChecker.CountUnpushedCommits(path)
+		if count > 0 {
+			indicators = append(indicators, r.styles.StatusUnpushed.Render(fmt.Sprintf("%s%d", r.theme.Indicators.Unpushed, count)))
+		} else {
+			indicators = append(indicators, r.styles.StatusUnpushed.Render(r.theme.Indicators.Unpushed))
+		}
 	}
 
 	if gitChecker.HasUntrackedFiles(path) {
-		indicators = append(indicators, r.styles.StatusUntracked.Render(r.theme.Indicators.Untracked))
+		count := gitChecker.CountUntrackedFiles(path)
+		if count > 0 {
+			indicators = append(indicators, r.styles.StatusUntracked.Render(fmt.Sprintf("%s%d", r.theme.Indicators.Untracked, count)))
+		} else {
+			indicators = append(indicators, r.styles.StatusUntracked.Render(r.theme.Indicators.Untracked))
+		}
 	}
 
 	if len(indicators) == 0 {

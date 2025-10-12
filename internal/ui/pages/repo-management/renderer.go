@@ -40,6 +40,7 @@ func (r *Renderer) Render(repositories []repository.Repository, cursor int, widt
 	bindings := []help.KeyBinding{
 		{Key: "↑/↓", Description: "navigate"},
 		{Key: "e", Description: "explore"},
+		{Key: "c", Description: "configure actions"},
 		{Key: "d", Description: "delete"},
 		{Key: "r", Description: "refresh"},
 		{Key: "Enter", Description: "details"},

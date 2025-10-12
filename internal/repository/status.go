@@ -76,6 +76,9 @@ func (s *StatusUpdater) UpdateRepositories(repositories []Repository) {
 func (s *StatusUpdater) updateBareRepositoryStatus(repo *Repository) {
 	repo.HasUncommitted = false
 	repo.HasUntracked = false
+	repo.UncommittedCount = 0
+	repo.UnpushedCount = 0
+	repo.UntrackedCount = 0
 
 	worktrees, err := s.gitChecker.ListWorktrees(repo.Path)
 	if err != nil {
@@ -91,6 +94,11 @@ func (s *StatusUpdater) updateRegularRepositoryStatus(repo *Repository) {
 	repo.HasUncommitted = s.gitChecker.HasUncommittedChanges(repo.Path)
 	repo.HasUnpushed = s.gitChecker.HasUnpushedCommits(repo.Path)
 	repo.HasUntracked = s.gitChecker.HasUntrackedFiles(repo.Path)
+
+	// Get counts for display
+	repo.UncommittedCount = s.gitChecker.CountUncommittedChanges(repo.Path)
+	repo.UnpushedCount = s.gitChecker.CountUnpushedCommits(repo.Path)
+	repo.UntrackedCount = s.gitChecker.CountUntrackedFiles(repo.Path)
 }
 
 // setCleanStatus sets all status flags to false indicating a clean repository.
@@ -99,6 +107,9 @@ func (s *StatusUpdater) setCleanStatus(repo *Repository) {
 	repo.HasUnpushed = false
 	repo.HasUntracked = false
 	repo.HasError = false
+	repo.UncommittedCount = 0
+	repo.UnpushedCount = 0
+	repo.UntrackedCount = 0
 }
 
 // setErrorStatus sets the repository to error state, clearing other status flags.
@@ -107,4 +118,7 @@ func (s *StatusUpdater) setErrorStatus(repo *Repository) {
 	repo.HasUnpushed = false
 	repo.HasUntracked = false
 	repo.HasError = true
+	repo.UncommittedCount = 0
+	repo.UnpushedCount = 0
+	repo.UntrackedCount = 0
 }

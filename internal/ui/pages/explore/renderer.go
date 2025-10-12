@@ -65,10 +65,19 @@ func (r *Renderer) renderItem(item Item, index, cursor int) string {
 	style := r.getItemStyle(isSelected)
 
 	icon := r.getItemIcon(item)
+
+	// Create the display name with branch info for worktrees
+	displayName := item.Name
+	if item.IsWorktree && item.WorktreeInfo != nil {
+		branchText := " " + r.theme.Icons.Branch.Icon + " " + item.WorktreeInfo.Branch
+		branchInfo := r.styles.Branch.Render(branchText)
+		displayName += branchInfo
+	}
+
 	status := r.getItemStatus(item)
 
 	// Create left content
-	leftContent := fmt.Sprintf("%s %s%s", cursorIndicator, icon, item.Name)
+	leftContent := fmt.Sprintf("%s %s%s", cursorIndicator, icon, displayName)
 	if status != "" {
 		leftContent += " " + status
 	}
@@ -112,18 +121,26 @@ func (r *Renderer) getItemStyle(isSelected bool) lipgloss.Style {
 // getItemIcon returns the appropriate icon for an item based on its type.
 func (r *Renderer) getItemIcon(item Item) string {
 	if item.Name == ".." {
-		return "📁 "
+		return r.theme.Icons.Folder.Icon
 	}
+
 	if item.IsWorktree {
-		return "🌳 "
+		return r.styles.IconWorktree.Render(r.theme.Icons.Repository.Worktree)
 	}
-	if item.IsDirectory {
-		return "📁 "
-	}
+
 	if item.IsGitRepo {
-		return "🔗 "
+		// Check if it's a bare repository by checking if it has worktree info but is not itself a worktree
+		// For bare repositories, we typically don't have WorktreeInfo set, but this is a heuristic
+		// In the explorer context, we'll treat all git repos as regular repositories for now
+		// since the explorer doesn't distinguish between bare and regular repos in the Item struct
+		return r.styles.IconRegular.Render(r.theme.Icons.Repository.Regular)
 	}
-	return "📄 "
+
+	if item.IsDirectory {
+		return r.theme.Icons.Folder.Icon
+	}
+
+	return r.theme.Icons.Tree.Branch + " "
 }
 
 // getItemStatus returns formatted status indicators for an item.

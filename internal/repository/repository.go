@@ -5,15 +5,18 @@ import "github.com/jarmocluyse/wip-tui/internal/git"
 
 // Repository represents a Git repository with its status information.
 type Repository struct {
-	Name           string
-	Path           string
-	AutoDiscover   bool
-	HasUncommitted bool
-	HasUnpushed    bool
-	HasUntracked   bool
-	HasError       bool
-	IsWorktree     bool
-	IsBare         bool
+	Name             string
+	Path             string
+	AutoDiscover     bool
+	HasUncommitted   bool
+	HasUnpushed      bool
+	HasUntracked     bool
+	HasError         bool
+	IsWorktree       bool
+	IsBare           bool
+	UncommittedCount int // Number of files with uncommitted changes (tracked files)
+	UnpushedCount    int // Number of unpushed commits
+	UntrackedCount   int // Number of untracked files
 }
 
 // NavigableItem represents a repository or worktree that can be navigated to.

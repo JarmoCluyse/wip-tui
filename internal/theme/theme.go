@@ -5,6 +5,7 @@ package theme
 type Theme struct {
 	Colors     Colors     `toml:"colors"`
 	Indicators Indicators `toml:"indicators"`
+	Icons      Icons      `toml:"icons"`
 }
 
 // Colors defines all color values used in the UI.
@@ -22,6 +23,9 @@ type Colors struct {
 	Border          string `toml:"border"`
 	ModalBackground string `toml:"modal_background"`
 	Branch          string `toml:"branch"`
+	IconRegular     string `toml:"icon_regular"`
+	IconBare        string `toml:"icon_bare"`
+	IconWorktree    string `toml:"icon_worktree"`
 }
 
 // Indicators defines all status indicator symbols.
@@ -32,6 +36,25 @@ type Indicators struct {
 	Untracked string `toml:"untracked"`
 	Error     string `toml:"error"`
 	NotAdded  string `toml:"not_added"`
+}
+
+// Icons defines all icon symbols used in the UI.
+type Icons struct {
+	Repository struct {
+		Regular  string `toml:"regular"`
+		Bare     string `toml:"bare"`
+		Worktree string `toml:"worktree"`
+	} `toml:"repository"`
+	Branch struct {
+		Icon string `toml:"icon"`
+	} `toml:"branch"`
+	Tree struct {
+		Branch string `toml:"branch"`
+		Last   string `toml:"last"`
+	} `toml:"tree"`
+	Folder struct {
+		Icon string `toml:"icon"`
+	} `toml:"folder"`
 }
 
 // Default returns the default theme configuration.
@@ -51,14 +74,45 @@ func Default() Theme {
 			Border:          "#7D56F4",
 			ModalBackground: "#1E1E1E",
 			Branch:          "#00D4AA",
+			IconRegular:     "#4A9EFF",
+			IconBare:        "#FFA500",
+			IconWorktree:    "#32CD32",
 		},
 		Indicators: Indicators{
-			Clean:     "🟢",
-			Dirty:     "🔴",
-			Unpushed:  "🟡",
-			Untracked: "🟠",
-			Error:     "❌",
-			NotAdded:  "⚪",
+			Clean:     "󰄬 ",
+			Dirty:     "󰏫 ",
+			Unpushed:  "󰕒 ",
+			Untracked: "󰈔 ",
+			Error:     " ",
+			NotAdded:  "󰝒 ",
+		},
+		Icons: Icons{
+			Repository: struct {
+				Regular  string `toml:"regular"`
+				Bare     string `toml:"bare"`
+				Worktree string `toml:"worktree"`
+			}{
+				Regular:  "󰊢 ",
+				Bare:     "󰉋 ",
+				Worktree: "󰐅 ",
+			},
+			Branch: struct {
+				Icon string `toml:"icon"`
+			}{
+				Icon: "󰘬 ",
+			},
+			Tree: struct {
+				Branch string `toml:"branch"`
+				Last   string `toml:"last"`
+			}{
+				Branch: "├─",
+				Last:   "└─",
+			},
+			Folder: struct {
+				Icon string `toml:"icon"`
+			}{
+				Icon: "󰉋 ",
+			},
 		},
 	}
 }
@@ -107,6 +161,15 @@ func MergeWithDefault(userTheme Theme) Theme {
 	if userTheme.Colors.Branch == "" {
 		userTheme.Colors.Branch = defaultTheme.Colors.Branch
 	}
+	if userTheme.Colors.IconRegular == "" {
+		userTheme.Colors.IconRegular = defaultTheme.Colors.IconRegular
+	}
+	if userTheme.Colors.IconBare == "" {
+		userTheme.Colors.IconBare = defaultTheme.Colors.IconBare
+	}
+	if userTheme.Colors.IconWorktree == "" {
+		userTheme.Colors.IconWorktree = defaultTheme.Colors.IconWorktree
+	}
 
 	// Merge indicators
 	if userTheme.Indicators.Clean == "" {
@@ -126,6 +189,29 @@ func MergeWithDefault(userTheme Theme) Theme {
 	}
 	if userTheme.Indicators.NotAdded == "" {
 		userTheme.Indicators.NotAdded = defaultTheme.Indicators.NotAdded
+	}
+
+	// Merge icons
+	if userTheme.Icons.Repository.Regular == "" {
+		userTheme.Icons.Repository.Regular = defaultTheme.Icons.Repository.Regular
+	}
+	if userTheme.Icons.Repository.Bare == "" {
+		userTheme.Icons.Repository.Bare = defaultTheme.Icons.Repository.Bare
+	}
+	if userTheme.Icons.Repository.Worktree == "" {
+		userTheme.Icons.Repository.Worktree = defaultTheme.Icons.Repository.Worktree
+	}
+	if userTheme.Icons.Branch.Icon == "" {
+		userTheme.Icons.Branch.Icon = defaultTheme.Icons.Branch.Icon
+	}
+	if userTheme.Icons.Tree.Branch == "" {
+		userTheme.Icons.Tree.Branch = defaultTheme.Icons.Tree.Branch
+	}
+	if userTheme.Icons.Tree.Last == "" {
+		userTheme.Icons.Tree.Last = defaultTheme.Icons.Tree.Last
+	}
+	if userTheme.Icons.Folder.Icon == "" {
+		userTheme.Icons.Folder.Icon = defaultTheme.Icons.Folder.Icon
 	}
 
 	return userTheme

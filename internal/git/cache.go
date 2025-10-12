@@ -7,7 +7,7 @@ import (
 
 // CacheEntry represents a cached git operation result.
 type CacheEntry struct {
-	Value     interface{}
+	Value     any
 	ExpiresAt time.Time
 }
 
@@ -27,7 +27,7 @@ func NewCache(ttl time.Duration) *Cache {
 }
 
 // Get retrieves a value from cache if it exists and hasn't expired.
-func (c *Cache) Get(key string) (interface{}, bool) {
+func (c *Cache) Get(key string) (any, bool) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -44,7 +44,7 @@ func (c *Cache) Get(key string) (interface{}, bool) {
 }
 
 // Set stores a value in cache with expiration.
-func (c *Cache) Set(key string, value interface{}) {
+func (c *Cache) Set(key string, value any) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 

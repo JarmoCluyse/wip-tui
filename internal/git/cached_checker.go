@@ -13,17 +13,10 @@ type CachedChecker struct {
 
 // NewCachedChecker creates a new cached git checker with 5 second TTL.
 func NewCachedChecker() StatusChecker {
+	// TODO: maybe make ttl configurable
 	return &CachedChecker{
 		checker: NewChecker(),
 		cache:   NewCache(5 * time.Second), // 5 second cache
-	}
-}
-
-// NewCachedCheckerWithTTL creates a new cached git checker with custom TTL.
-func NewCachedCheckerWithTTL(ttl time.Duration) StatusChecker {
-	return &CachedChecker{
-		checker: NewChecker(),
-		cache:   NewCache(ttl),
 	}
 }
 
@@ -125,6 +118,42 @@ func (c *CachedChecker) GetCurrentBranch(path string) string {
 	}
 
 	result := c.checker.GetCurrentBranch(path)
+	c.cache.Set(key, result)
+	return result
+}
+
+// CountUncommittedChanges returns the number of files with uncommitted changes (cached).
+func (c *CachedChecker) CountUncommittedChanges(path string) int {
+	key := fmt.Sprintf("CountUncommittedChanges:%s", path)
+	if value, ok := c.cache.Get(key); ok {
+		return value.(int)
+	}
+
+	result := c.checker.CountUncommittedChanges(path)
+	c.cache.Set(key, result)
+	return result
+}
+
+// CountUnpushedCommits returns the number of unpushed commits (cached).
+func (c *CachedChecker) CountUnpushedCommits(path string) int {
+	key := fmt.Sprintf("CountUnpushedCommits:%s", path)
+	if value, ok := c.cache.Get(key); ok {
+		return value.(int)
+	}
+
+	result := c.checker.CountUnpushedCommits(path)
+	c.cache.Set(key, result)
+	return result
+}
+
+// CountUntrackedFiles returns the number of untracked files (cached).
+func (c *CachedChecker) CountUntrackedFiles(path string) int {
+	key := fmt.Sprintf("CountUntrackedFiles:%s", path)
+	if value, ok := c.cache.Get(key); ok {
+		return value.(int)
+	}
+
+	result := c.checker.CountUntrackedFiles(path)
 	c.cache.Set(key, result)
 	return result
 }

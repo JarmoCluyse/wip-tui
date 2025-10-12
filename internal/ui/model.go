@@ -17,6 +17,7 @@ const (
 	RepoManagementView
 	ExplorerView
 	DetailsView
+	ActionConfigView
 )
 
 // Dependencies interface defines what the UI needs from the application layer
@@ -46,6 +47,19 @@ type Model struct {
 	CachedNavItems   []types.NavigableItem // Cache for navigable items
 	NavItemsNeedSync bool                  // Flag to indicate cache needs update
 	SelectedNavItem  *types.NavigableItem  // Currently selected item for details view
+
+	// Action configuration fields
+	ActionConfigCursor   int            // Cursor for action list
+	ActionConfigEditMode bool           // Whether we're editing an action
+	ActionConfigFieldIdx int            // Current field being edited
+	ActionConfigAction   *config.Action // Action being edited
+	ActionConfigIsNew    bool           // Whether we're creating a new action
+
+	// Handler instances for separated concerns
+	KeyHandler        *KeyHandler
+	NavigationHandler *NavigationHandler
+	RepositoryHandler *RepositoryOperationHandler
+	ExplorerHandler   *ExplorerHandler
 }
 
 type StatusMessage struct {
@@ -69,6 +83,9 @@ type StyleConfig struct {
 	HelpModalFooter   lipgloss.Style
 	Branch            lipgloss.Style
 	Border            lipgloss.Style
+	IconRegular       lipgloss.Style
+	IconBare          lipgloss.Style
+	IconWorktree      lipgloss.Style
 }
 
 // CreateStyleConfig creates a new StyleConfig using the provided theme configuration.
@@ -134,5 +151,14 @@ func CreateStyleConfig(themeConfig theme.Theme) StyleConfig {
 			BorderForeground(lipgloss.Color(themeConfig.Colors.Border)).
 			Padding(0, 1).
 			Margin(0, 0, 0, 0),
+		IconRegular: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(themeConfig.Colors.IconRegular)).
+			Bold(true),
+		IconBare: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(themeConfig.Colors.IconBare)).
+			Bold(true),
+		IconWorktree: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(themeConfig.Colors.IconWorktree)).
+			Bold(true),
 	}
 }

@@ -18,6 +18,9 @@ type StyleConfig struct {
 	Help              lipgloss.Style
 	Branch            lipgloss.Style
 	Border            lipgloss.Style
+	IconRegular       lipgloss.Style
+	IconBare          lipgloss.Style
+	IconWorktree      lipgloss.Style
 }
 
 // CreateStyleConfig creates a style configuration for the home page
@@ -57,5 +60,14 @@ func CreateStyleConfig(themeConfig theme.Theme) StyleConfig {
 			BorderForeground(lipgloss.Color(themeConfig.Colors.Border)).
 			Padding(0, 1).
 			Margin(0, 0, 0, 0),
+		IconRegular: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(themeConfig.Colors.IconRegular)).
+			Bold(true),
+		IconBare: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(themeConfig.Colors.IconBare)).
+			Bold(true),
+		IconWorktree: lipgloss.NewStyle().
+			Foreground(lipgloss.Color(themeConfig.Colors.IconWorktree)).
+			Bold(true),
 	}
 }

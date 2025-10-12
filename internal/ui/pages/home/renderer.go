@@ -35,6 +35,9 @@ func NewRenderer(styles StyleConfig, themeConfig theme.Theme) *Renderer {
 		Help:              styles.Help,
 		Branch:            styles.Branch,
 		Border:            styles.Border,
+		IconRegular:       styles.IconRegular,
+		IconBare:          styles.IconBare,
+		IconWorktree:      styles.IconWorktree,
 	}
 	return &Renderer{
 		styles: styles,
@@ -183,11 +186,9 @@ func (r *Renderer) renderHelp(actions []config.Action) string {
 	// Build bindings list
 	var bindings []help.KeyBinding
 
-	// Static keybindings
+	// Static keybindings - removed "e" and "d" as they're now only in management page
 	bindings = append(bindings,
 		help.KeyBinding{Key: "m", Description: "manage repos"},
-		help.KeyBinding{Key: "e", Description: "explore"},
-		help.KeyBinding{Key: "d", Description: "delete"},
 		help.KeyBinding{Key: "r", Description: "refresh"},
 	)
 
