@@ -1,8 +1,10 @@
 package home
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/jarmocluyse/wip-tui/internal/config"
 	"github.com/jarmocluyse/wip-tui/internal/git"
 	"github.com/jarmocluyse/wip-tui/internal/repository"
@@ -51,6 +53,9 @@ func NewRenderer(styles StyleConfig, themeConfig theme.Theme) *Renderer {
 func (r *Renderer) RenderRepositoryList(repositories []repository.Repository, cursor int, width, height int, actions []config.Action) string {
 	content := r.header.RenderWithSpacing("Git Repository Status", width)
 
+	// Add summary header for repository list
+	content += r.renderRepositorySummaryHeader(repositories, cursor, width)
+
 	if len(repositories) == 0 {
 		content += r.renderEmptyState()
 	} else {
@@ -70,12 +75,15 @@ func (r *Renderer) RenderRepositoryList(repositories []repository.Repository, cu
 	}
 	bindings = append(bindings, help.KeyBinding{Key: "m", Description: "manage repos"})
 
-	return helpBuilder.RenderWithBottomHelpAndHeader(content, bindings, width, height, 3)
+	return helpBuilder.RenderWithBottomHelpAndHeader(content, bindings, width, height, 4) // Increased header count
 }
 
 // RenderNavigableList renders the navigable repository list (with worktrees as separate items)
 func (r *Renderer) RenderNavigableList(items []types.NavigableItem, cursor int, width, height int, gitChecker git.StatusChecker, actions []config.Action) string {
 	content := r.header.RenderWithSpacing("Git Repository Status", width)
+
+	// Add summary header
+	content += r.renderSummaryHeader(items, cursor, width)
 
 	if len(items) == 0 {
 		content += r.renderEmptyState()
@@ -96,7 +104,7 @@ func (r *Renderer) RenderNavigableList(items []types.NavigableItem, cursor int, 
 	}
 	bindings = append(bindings, help.KeyBinding{Key: "m", Description: "manage repos"})
 
-	return helpBuilder.RenderWithBottomHelpAndHeader(content, bindings, width, height, 3)
+	return helpBuilder.RenderWithBottomHelpAndHeader(content, bindings, width, height, 4) // Increased header count
 }
 
 // renderNavigableItemList renders a list of navigable items (repositories and worktrees).
@@ -147,6 +155,148 @@ func (r *Renderer) renderNavigableItem(item types.NavigableItem, index, cursor i
 	default:
 		return ""
 	}
+}
+
+// renderRepositorySummaryHeader renders a summary line for the repository list view
+func (r *Renderer) renderRepositorySummaryHeader(repositories []repository.Repository, cursor int, width int) string {
+	if len(repositories) == 0 {
+		return ""
+	}
+
+	// Build the summary line as a static table header with icons and padding
+	frontIndicatorWidth := lipgloss.Width(r.theme.Indicators.Selected)
+	frontPadding := strings.Repeat(" ", frontIndicatorWidth)
+	leftPart := fmt.Sprintf("%s%s repo | %s branch", frontPadding, r.theme.Icons.Repository.Regular, r.theme.Icons.Branch.Icon)
+
+	// Calculate totals
+	totalUncommitted := 0
+	totalUnpushed := 0
+	totalUntracked := 0
+	totalErrors := 0
+
+	for _, repo := range repositories {
+		if repo.HasUncommitted {
+			totalUncommitted += repo.UncommittedCount
+		}
+		if repo.HasUnpushed {
+			totalUnpushed += repo.UnpushedCount
+		}
+		if repo.HasUntracked {
+			totalUntracked += repo.UntrackedCount
+		}
+		if repo.HasError {
+			totalErrors++
+		}
+	}
+
+	// Build summary counts
+	var summaryParts []string
+	if totalUncommitted > 0 {
+		summaryParts = append(summaryParts, r.styles.StatusUncommitted.Render(fmt.Sprintf("%d uncommitted", totalUncommitted)))
+	}
+	if totalUnpushed > 0 {
+		summaryParts = append(summaryParts, r.styles.StatusUnpushed.Render(fmt.Sprintf("%d unpushed", totalUnpushed)))
+	}
+	if totalUntracked > 0 {
+		summaryParts = append(summaryParts, r.styles.StatusUntracked.Render(fmt.Sprintf("%d untracked", totalUntracked)))
+	}
+	if totalErrors > 0 {
+		summaryParts = append(summaryParts, r.styles.StatusError.Render(fmt.Sprintf("%d errors", totalErrors)))
+	}
+
+	var rightPart string
+	if len(summaryParts) > 0 {
+		rightPart = strings.Join(summaryParts, " ")
+	} else {
+		rightPart = r.styles.StatusClean.Render("all clean")
+	}
+
+	// Calculate spacing to right-align the summary
+	leftWidth := lipgloss.Width(leftPart)
+	rightWidth := lipgloss.Width(rightPart)
+	availableWidth := width - 2 // margin for safety
+	padding := availableWidth - leftWidth - rightWidth
+
+	if padding < 1 {
+		padding = 1
+	}
+
+	summaryLine := leftPart + strings.Repeat(" ", padding) + rightPart
+	return r.styles.Help.Render(summaryLine) + "\n\n"
+}
+
+// renderSummaryHeader renders a summary line showing current repo/branch and total change counts
+func (r *Renderer) renderSummaryHeader(items []types.NavigableItem, cursor int, width int) string {
+	if len(items) == 0 {
+		return ""
+	}
+
+	// Build the summary line as a static table header with icons and padding
+	frontIndicatorWidth := lipgloss.Width(r.theme.Indicators.Selected)
+	frontPadding := strings.Repeat(" ", frontIndicatorWidth)
+	leftPart := fmt.Sprintf("%s%s repo | %s branch", frontPadding, r.theme.Icons.Repository.Regular, r.theme.Icons.Branch.Icon)
+
+	// Calculate totals
+	totalUncommitted := 0
+	totalUnpushed := 0
+	totalUntracked := 0
+	totalErrors := 0
+
+	for _, item := range items {
+		switch item.Type {
+		case "repository":
+			if item.Repository.HasUncommitted {
+				totalUncommitted += item.Repository.UncommittedCount
+			}
+			if item.Repository.HasUnpushed {
+				totalUnpushed += item.Repository.UnpushedCount
+			}
+			if item.Repository.HasUntracked {
+				totalUntracked += item.Repository.UntrackedCount
+			}
+			if item.Repository.HasError {
+				totalErrors++
+			}
+		case "worktree":
+			// For worktrees, we'd need to get status from git checker
+			// For now, we'll skip detailed counts for worktrees
+		}
+	}
+
+	// Build summary counts
+	var summaryParts []string
+	if totalUncommitted > 0 {
+		summaryParts = append(summaryParts, r.styles.StatusUncommitted.Render(fmt.Sprintf("%d uncommitted", totalUncommitted)))
+	}
+	if totalUnpushed > 0 {
+		summaryParts = append(summaryParts, r.styles.StatusUnpushed.Render(fmt.Sprintf("%d unpushed", totalUnpushed)))
+	}
+	if totalUntracked > 0 {
+		summaryParts = append(summaryParts, r.styles.StatusUntracked.Render(fmt.Sprintf("%d untracked", totalUntracked)))
+	}
+	if totalErrors > 0 {
+		summaryParts = append(summaryParts, r.styles.StatusError.Render(fmt.Sprintf("%d errors", totalErrors)))
+	}
+
+	var rightPart string
+	if len(summaryParts) > 0 {
+		rightPart = strings.Join(summaryParts, " ")
+	} else {
+		rightPart = r.styles.StatusClean.Render("all clean")
+	}
+
+	// Calculate spacing to right-align the summary
+	leftWidth := lipgloss.Width(leftPart)
+	rightWidth := lipgloss.Width(rightPart)
+	availableWidth := width - 2 // margin for safety
+	padding := availableWidth - leftWidth - rightWidth
+
+	if padding < 1 {
+		padding = 1
+	}
+
+	summaryLine := leftPart + strings.Repeat(" ", padding) + rightPart
+	return r.styles.Help.Render(summaryLine) + "\n\n"
 }
 
 // renderEmptyState renders a message when no repositories are configured.
