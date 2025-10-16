@@ -53,6 +53,12 @@ type Model struct {
 	SettingsSection string // Current settings section
 	SettingsCursor  int    // Cursor for settings items
 
+	// Action editing fields (for inline editing in settings)
+	ActionEditMode      bool   // Whether we're editing an action in settings
+	ActionEditValue     string // Current value being edited
+	ActionEditFieldType string // Type of field being edited (name, key, command, description)
+	ActionEditItemIndex int    // Index of action being edited
+
 	// Theme editing fields
 	ThemeEditMode      bool   // Whether we're editing a theme item
 	ThemeEditValue     string // Current value being edited

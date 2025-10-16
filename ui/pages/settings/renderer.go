@@ -44,7 +44,7 @@ func NewRenderer(styles StyleConfig, themeConfig theme.Theme) *Renderer {
 }
 
 // Render renders the settings page with all sections
-func (r *Renderer) Render(data SettingsData, currentSection SettingsSection, cursor int, width, height int, themeEditMode bool, themeEditValue string) string {
+func (r *Renderer) Render(data SettingsData, currentSection SettingsSection, cursor int, width, height int, themeEditMode bool, themeEditValue string, actionEditMode bool, actionEditValue string, actionEditFieldType string, actionEditItemIndex int) string {
 	content := r.header.RenderWithCountAndSpacing("git-dash", "", 1, width)
 	content += r.header.RenderWithSpacing("Settings", width)
 
@@ -55,7 +55,7 @@ func (r *Renderer) Render(data SettingsData, currentSection SettingsSection, cur
 	case RepositoriesSection:
 		content += r.renderRepositoriesSection(data.Repositories, cursor, width)
 	case ActionsSection:
-		content += r.renderActionsSection(data.Actions, cursor, width)
+		content += r.renderActionsSection(data.Actions, cursor, width, actionEditMode, actionEditValue, actionEditFieldType, actionEditItemIndex)
 	case ThemeSection:
 		content += r.renderThemeSection(data.Theme, cursor, width, themeEditMode, themeEditValue)
 	}
@@ -110,8 +110,8 @@ func (r *Renderer) renderRepositoriesSection(repositories []*repomanager.RepoIte
 	return content
 }
 
-// renderActionsSection renders the actions settings section
-func (r *Renderer) renderActionsSection(actions []config.Action, cursor int, width int) string {
+// renderActionsSection renders the actions settings section with edit support
+func (r *Renderer) renderActionsSection(actions []config.Action, cursor int, width int, actionEditMode bool, actionEditValue string, actionEditFieldType string, actionEditItemIndex int) string {
 	var content string
 	content += r.styles.SectionTitle.Render(fmt.Sprintf("Custom Actions (%d):", len(actions))) + "\n\n"
 
@@ -122,7 +122,12 @@ func (r *Renderer) renderActionsSection(actions []config.Action, cursor int, wid
 
 	for i, action := range actions {
 		isSelected := i == cursor
-		content += r.renderActionItem(action, isSelected, width)
+		if actionEditMode && isSelected && actionEditItemIndex == i {
+			// Show edit mode for this action
+			content += r.renderActionItemEdit(action, actionEditValue, actionEditFieldType, width)
+		} else {
+			content += r.renderActionItem(action, isSelected, width)
+		}
 	}
 
 	return content
@@ -154,9 +159,10 @@ func (r *Renderer) renderThemeSection(themeConfig theme.Theme, cursor int, width
 			for _, item := range items {
 				isSelected := itemIndex == cursor
 				if themeEditMode && isSelected {
-					// Show edit mode for this item
+					// Show edit mode for this item (2 lines)
 					content += r.renderThemeItemEdit(item.name, themeEditValue, item.itemType, width)
 				} else {
+					// Show normal mode (1 line)
 					content += r.renderThemeItem(item.name, item.value, item.itemType, isSelected, width)
 				}
 				itemIndex++
@@ -276,12 +282,115 @@ func (r *Renderer) renderActionItem(action config.Action, isSelected bool, width
 		frontIndicator = strings.Repeat(" ", lipgloss.Width(r.theme.Indicators.Selected))
 	}
 
-	actionLine := fmt.Sprintf(" %s%s: %s - %s", frontIndicator, action.Key, action.Name, action.Command)
+	// Format command with args for display
+	commandDisplay := action.Command
+	if len(action.Args) > 0 {
+		commandDisplay += " " + strings.Join(action.Args, " ")
+	}
+
+	actionLine := fmt.Sprintf(" %s%s: %s - %s", frontIndicator, action.Key, action.Name, commandDisplay)
 
 	return style.Render(actionLine) + "\n"
 }
 
-// renderThemeItem renders a single theme item with appropriate preview
+// renderActionItemEdit renders an action item in edit mode with field-specific input
+func (r *Renderer) renderActionItemEdit(action config.Action, editValue string, fieldType string, width int) string {
+	style := r.styles.SelectedItem
+	frontIndicator := r.theme.Indicators.Selected
+
+	// Create a multi-line layout for better editing experience
+	var content strings.Builder
+
+	// Header line with action indicator
+	content.WriteString(style.Render(fmt.Sprintf(" %sEditing Action:", frontIndicator)) + "\n")
+
+	// Field definitions with current values and edit indicators
+	fields := []struct {
+		label       string
+		value       string
+		isEditing   bool
+		fieldType   string
+		description string
+	}{
+		{"Name", action.Name, fieldType == "name", "name", "Display name for the action"},
+		{"Key", action.Key, fieldType == "key", "key", "Keyboard shortcut (e.g., 'g', 'ctrl+r')"},
+		{"Command", action.Command, fieldType == "command", "command", "Shell command to execute"},
+		{"Args", strings.Join(action.Args, " "), fieldType == "args", "args", "Arguments for the command (space-separated)"},
+	}
+
+	for i, field := range fields {
+		// Field label with progress indicator
+		fieldNum := i + 1
+		totalFields := len(fields)
+		progressIndicator := fmt.Sprintf("[%d/%d]", fieldNum, totalFields)
+
+		var fieldStyle lipgloss.Style
+		var displayValue string
+
+		if field.isEditing {
+			// Currently editing this field
+			fieldStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(r.theme.Colors.Selected)).
+				Bold(true)
+
+			// Show edit field with border and cursor
+			editField := lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color(r.theme.Colors.Selected)).
+				Background(lipgloss.Color(r.theme.Colors.ModalBackground)).
+				Padding(0, 1).
+				Width(30).
+				Render(editValue + "│")
+
+			displayValue = editField
+
+			// Add field description below for the active field
+			descStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(r.theme.Colors.Help)).
+				Italic(true)
+			content.WriteString(style.Render(fmt.Sprintf("   %s %s %s:", progressIndicator, fieldStyle.Render("→"), field.label)) + "\n")
+			content.WriteString(displayValue + "\n")
+			content.WriteString(style.Render(fmt.Sprintf("     %s", descStyle.Render(field.description))) + "\n")
+		} else {
+			// Not editing - show current value
+			fieldStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color(r.theme.Colors.Help))
+
+			if field.value == "" {
+				displayValue = fieldStyle.Render("(empty)")
+			} else {
+				// Truncate long values for display
+				maxLen := 40
+				if len(field.value) > maxLen {
+					displayValue = field.value[:maxLen] + "..."
+				} else {
+					displayValue = field.value
+				}
+			}
+
+			content.WriteString(style.Render(fmt.Sprintf("   %s   %s: %s", progressIndicator, fieldStyle.Render(field.label), displayValue)) + "\n")
+		}
+	}
+
+	// Help text
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(r.theme.Colors.Help)).
+		Italic(true)
+	content.WriteString(style.Render(fmt.Sprintf("   %s", helpStyle.Render("Enter: next field • Tab: skip • Esc: cancel • Ctrl+S: save"))) + "\n")
+
+	return content.String()
+}
+
+// renderEditField renders an input field with cursor indicator
+func (r *Renderer) renderEditField(value string) string {
+	return lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(r.theme.Colors.Selected)).
+		Padding(0, 1).
+		Render(value + "|")
+}
+
+// renderThemeItem renders a single theme item with appropriate preview (single line)
 func (r *Renderer) renderThemeItem(name, value, itemType string, isSelected bool, width int) string {
 	var style = r.styles.Item
 	if isSelected {

@@ -1,9 +1,12 @@
 package ui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbletea"
 	"github.com/jarmocluyse/git-dash/internal/config"
 	"github.com/jarmocluyse/git-dash/internal/logging"
+	"github.com/jarmocluyse/git-dash/internal/theme"
 )
 
 // KeyHandler manages keyboard input handling for different view states.
@@ -112,6 +115,11 @@ func (h *KeyHandler) handleSettingsViewKeys(m Model, msg tea.KeyMsg) (tea.Model,
 		return h.handleThemeEditKeys(m, msg)
 	}
 
+	// If we're in action edit mode, handle those keys differently
+	if m.ActionEditMode {
+		return h.handleActionEditKeysInSettings(m, msg)
+	}
+
 	switch keyStr {
 	case "ctrl+c", "esc":
 		return h.exitSettingsMode(m), nil
@@ -192,25 +200,25 @@ func (h *KeyHandler) handleSettingsViewKeys(m Model, msg tea.KeyMsg) (tea.Model,
 	case "e":
 		// Edit functionality for various sections
 		if m.SettingsSection == "theme" {
-			// Start theme editing mode (placeholder for now)
+			// Start theme editing mode
 			return h.startThemeEdit(m)
+		} else if m.SettingsSection == "actions" {
+			// Start action editing mode
+			return h.startActionEdit(m)
 		}
 		return m, nil
 	case "d":
-		// Delete functionality (mainly for repositories)
+		// Delete functionality
 		if m.SettingsSection == "repositories" || m.SettingsSection == "" {
 			return h.repositoryHandler.DeleteSelectedRepository(m)
+		} else if m.SettingsSection == "actions" {
+			return h.deleteSelectedActionInSettings(m)
 		}
 		return m, nil
 	case "a":
-		// Add functionality (mainly for actions)
+		// Add functionality
 		if m.SettingsSection == "actions" {
-			m.PreviousState = m.State
-			m.State = ActionConfigView
-			m.ActionConfigCursor = 0
-			m.ActionConfigEditMode = true
-			m.ActionConfigIsNew = true
-			m.ActionConfigAction = &config.Action{}
+			return h.addNewActionInSettings(m)
 		}
 		return m, nil
 	case "r":
@@ -469,38 +477,326 @@ func (h *KeyHandler) saveAction(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// startThemeEdit starts theme editing mode for the selected theme item
-func (h *KeyHandler) startThemeEdit(m Model) (Model, tea.Cmd) {
-	// Get the current theme item value based on cursor position
-	m.ThemeEditMode = true
-	m.ThemeEditItemIndex = m.SettingsCursor
+// startActionEdit starts action editing mode for the selected action in settings
+func (h *KeyHandler) startActionEdit(m Model) (Model, tea.Cmd) {
+	actions := m.Config.Keybindings.Actions
+	if len(actions) == 0 || m.SettingsCursor >= len(actions) {
+		return m, nil
+	}
 
-	// Get the current value from the theme configuration
-	currentValue := h.getThemeItemValue(m, m.SettingsCursor)
-	m.ThemeEditValue = currentValue
+	// Start editing the name field by default
+	m.ActionEditMode = true
+	m.ActionEditItemIndex = m.SettingsCursor
+	m.ActionEditFieldType = "name"
+
+	// Get the current value based on field type
+	action := actions[m.SettingsCursor]
+	m.ActionEditValue = action.Name
 
 	return m, nil
 }
 
-// getThemeItemValue gets the current value of a theme item by index
-func (h *KeyHandler) getThemeItemValue(m Model, itemIndex int) string {
-	themeConfig := m.Dependencies.GetThemeService().GetTheme()
-
-	// Create the same theme items list as in the renderer
-	var items []struct {
-		name     string
-		value    string
-		itemType string
-		category string
+// addNewActionInSettings adds a new action in the settings view
+func (h *KeyHandler) addNewActionInSettings(m Model) (Model, tea.Cmd) {
+	// Add an empty action to the config
+	newAction := config.Action{
+		Name:    "New Action",
+		Key:     "",
+		Command: "",
+		Args:    []string{},
 	}
 
-	// Colors (11 items)
-	colorItems := []struct {
-		name     string
-		value    string
-		itemType string
-		category string
-	}{
+	m.Config.Keybindings.Actions = append(m.Config.Keybindings.Actions, newAction)
+
+	// Move cursor to the new action and start editing
+	m.SettingsCursor = len(m.Config.Keybindings.Actions) - 1
+	m.ActionEditMode = true
+	m.ActionEditItemIndex = m.SettingsCursor
+	m.ActionEditFieldType = "name"
+	m.ActionEditValue = "New Action"
+
+	return m, nil
+}
+
+// deleteSelectedActionInSettings deletes the selected action in settings
+func (h *KeyHandler) deleteSelectedActionInSettings(m Model) (Model, tea.Cmd) {
+	actions := m.Config.Keybindings.Actions
+	if len(actions) == 0 || m.SettingsCursor >= len(actions) {
+		return m, nil
+	}
+
+	// Remove the selected action
+	m.Config.Keybindings.Actions = append(actions[:m.SettingsCursor], actions[m.SettingsCursor+1:]...)
+
+	// Adjust cursor if necessary
+	if m.SettingsCursor >= len(m.Config.Keybindings.Actions) && len(m.Config.Keybindings.Actions) > 0 {
+		m.SettingsCursor = len(m.Config.Keybindings.Actions) - 1
+	} else if len(m.Config.Keybindings.Actions) == 0 {
+		m.SettingsCursor = 0
+	}
+
+	// Save configuration
+	if err := m.Dependencies.GetConfigService().Save(m.Config); err != nil {
+		logging.Get().Error("failed to save config after deleting action", "error", err)
+	}
+
+	return m, nil
+}
+
+// handleActionEditKeysInSettings handles key events when editing an action in settings
+func (h *KeyHandler) handleActionEditKeysInSettings(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyStr := msg.String()
+
+	switch keyStr {
+	case "ctrl+c", "esc":
+		// Cancel editing
+		m.ActionEditMode = false
+		m.ActionEditValue = ""
+		m.ActionEditFieldType = ""
+		return m, nil
+	case "enter":
+		// Save current field and move to next field or finish
+		if err := h.saveActionFieldEdit(m); err != nil {
+			// TODO: Show error to user
+			return m, nil
+		}
+
+		// Move to next field or finish editing
+		return h.moveToNextActionField(m), nil
+	case "tab":
+		// Move to next field without saving current changes
+		return h.moveToNextActionField(m), nil
+	case "backspace":
+		// Remove last character
+		if len(m.ActionEditValue) > 0 {
+			m.ActionEditValue = m.ActionEditValue[:len(m.ActionEditValue)-1]
+		}
+		return m, nil
+	default:
+		// Add character to the edit value
+		if len(keyStr) == 1 {
+			m.ActionEditValue += keyStr
+		}
+		return m, nil
+	}
+}
+
+// saveActionFieldEdit saves the current field value being edited
+func (h *KeyHandler) saveActionFieldEdit(m Model) error {
+	actions := m.Config.Keybindings.Actions
+	if m.ActionEditItemIndex >= len(actions) {
+		return nil
+	}
+
+	action := &actions[m.ActionEditItemIndex]
+
+	switch m.ActionEditFieldType {
+	case "name":
+		action.Name = m.ActionEditValue
+	case "key":
+		action.Key = m.ActionEditValue
+	case "command":
+		action.Command = m.ActionEditValue
+	case "args":
+		// Split space-separated arguments
+		if strings.TrimSpace(m.ActionEditValue) == "" {
+			action.Args = nil
+		} else {
+			action.Args = strings.Fields(m.ActionEditValue)
+		}
+	}
+
+	// Update the action in the slice
+	m.Config.Keybindings.Actions[m.ActionEditItemIndex] = *action
+
+	// Save configuration
+	return m.Dependencies.GetConfigService().Save(m.Config)
+}
+
+// moveToNextActionField moves to the next field in action editing
+func (h *KeyHandler) moveToNextActionField(m Model) Model {
+	actions := m.Config.Keybindings.Actions
+	if m.ActionEditItemIndex >= len(actions) {
+		m.ActionEditMode = false
+		return m
+	}
+
+	action := actions[m.ActionEditItemIndex]
+
+	switch m.ActionEditFieldType {
+	case "name":
+		m.ActionEditFieldType = "key"
+		m.ActionEditValue = action.Key
+	case "key":
+		m.ActionEditFieldType = "command"
+		m.ActionEditValue = action.Command
+	case "command":
+		m.ActionEditFieldType = "args"
+		m.ActionEditValue = strings.Join(action.Args, " ")
+	case "args":
+		// Finished editing all fields
+		m.ActionEditMode = false
+		m.ActionEditValue = ""
+		m.ActionEditFieldType = ""
+	default:
+		// Start with name if no field type set
+		m.ActionEditFieldType = "name"
+		m.ActionEditValue = action.Name
+	}
+
+	return m
+}
+
+// handleThemeEditKeys handles key events when editing theme in settings view
+func (h *KeyHandler) handleThemeEditKeys(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyStr := msg.String()
+
+	switch keyStr {
+	case "ctrl+c", "esc":
+		// Cancel theme editing
+		m.ThemeEditMode = false
+		m.ThemeEditValue = ""
+		return m, nil
+	case "enter":
+		// Save the theme property value
+		if m.ThemeEditValue != "" {
+			if err := h.saveThemePropertyEdit(m); err != nil {
+				// TODO: Show error to user
+				return m, nil
+			}
+		}
+		m.ThemeEditMode = false
+		m.ThemeEditValue = ""
+		return m, nil
+	case "backspace":
+		// Remove last character
+		if len(m.ThemeEditValue) > 0 {
+			m.ThemeEditValue = m.ThemeEditValue[:len(m.ThemeEditValue)-1]
+		}
+		return m, nil
+	default:
+		// Add character to theme property value
+		if len(keyStr) == 1 {
+			m.ThemeEditValue += keyStr
+		}
+		return m, nil
+	}
+}
+
+// startThemeEdit starts theme editing mode in settings
+func (h *KeyHandler) startThemeEdit(m Model) (tea.Model, tea.Cmd) {
+	m.ThemeEditMode = true
+	m.ThemeEditItemIndex = m.SettingsCursor
+
+	// Get the current value of the theme property being edited
+	themeItems := h.getAllThemeItems(m.Config.Theme)
+	if m.SettingsCursor >= 0 && m.SettingsCursor < len(themeItems) {
+		m.ThemeEditValue = themeItems[m.SettingsCursor].value
+	}
+
+	return m, nil
+}
+
+// saveThemePropertyEdit saves the edited theme property
+func (h *KeyHandler) saveThemePropertyEdit(m Model) error {
+	themeItems := h.getAllThemeItems(m.Config.Theme)
+	if m.ThemeEditItemIndex < 0 || m.ThemeEditItemIndex >= len(themeItems) {
+		return nil
+	}
+
+	item := themeItems[m.ThemeEditItemIndex]
+
+	// Update the appropriate field based on the item name and type
+	switch item.name {
+	// Colors
+	case "Title":
+		m.Config.Theme.Colors.Title = m.ThemeEditValue
+	case "Title Background":
+		m.Config.Theme.Colors.TitleBackground = m.ThemeEditValue
+	case "Selected":
+		m.Config.Theme.Colors.Selected = m.ThemeEditValue
+	case "Selected Background":
+		m.Config.Theme.Colors.SelectedBackground = m.ThemeEditValue
+	case "Help Text":
+		m.Config.Theme.Colors.Help = m.ThemeEditValue
+	case "Border":
+		m.Config.Theme.Colors.Border = m.ThemeEditValue
+	case "Modal Background":
+		m.Config.Theme.Colors.ModalBackground = m.ThemeEditValue
+	case "Branch":
+		m.Config.Theme.Colors.Branch = m.ThemeEditValue
+	case "Regular Icon":
+		m.Config.Theme.Colors.IconRegular = m.ThemeEditValue
+	case "Bare Icon":
+		m.Config.Theme.Colors.IconBare = m.ThemeEditValue
+	case "Worktree Icon":
+		m.Config.Theme.Colors.IconWorktree = m.ThemeEditValue
+	case "Clean Status Color":
+		m.Config.Theme.Colors.StatusClean = m.ThemeEditValue
+	case "Dirty Status Color":
+		m.Config.Theme.Colors.StatusDirty = m.ThemeEditValue
+	case "Unpushed Status Color":
+		m.Config.Theme.Colors.StatusUnpushed = m.ThemeEditValue
+	case "Untracked Status Color":
+		m.Config.Theme.Colors.StatusUntracked = m.ThemeEditValue
+	case "Error Status Color":
+		m.Config.Theme.Colors.StatusError = m.ThemeEditValue
+	case "Not Added Status Color":
+		m.Config.Theme.Colors.StatusNotAdded = m.ThemeEditValue
+
+	// Indicators
+	case "Clean Status Icon":
+		m.Config.Theme.Indicators.Clean = m.ThemeEditValue
+	case "Dirty Status Icon":
+		m.Config.Theme.Indicators.Dirty = m.ThemeEditValue
+	case "Unpushed Status Icon":
+		m.Config.Theme.Indicators.Unpushed = m.ThemeEditValue
+	case "Untracked Status Icon":
+		m.Config.Theme.Indicators.Untracked = m.ThemeEditValue
+	case "Error Status Icon":
+		m.Config.Theme.Indicators.Error = m.ThemeEditValue
+	case "Not Added Status Icon":
+		m.Config.Theme.Indicators.NotAdded = m.ThemeEditValue
+	case "Selected Indicator":
+		m.Config.Theme.Indicators.Selected = m.ThemeEditValue
+	case "Selected End":
+		m.Config.Theme.Indicators.SelectedEnd = m.ThemeEditValue
+
+	// Icons
+	case "Regular Repository":
+		m.Config.Theme.Icons.Repository.Regular = m.ThemeEditValue
+	case "Bare Repository":
+		m.Config.Theme.Icons.Repository.Bare = m.ThemeEditValue
+	case "Worktree Repository":
+		m.Config.Theme.Icons.Repository.Worktree = m.ThemeEditValue
+	case "Branch Icon":
+		m.Config.Theme.Icons.Branch.Icon = m.ThemeEditValue
+	case "Tree Branch":
+		m.Config.Theme.Icons.Tree.Branch = m.ThemeEditValue
+	case "Tree Last":
+		m.Config.Theme.Icons.Tree.Last = m.ThemeEditValue
+	case "Folder Icon":
+		m.Config.Theme.Icons.Folder.Icon = m.ThemeEditValue
+	}
+
+	// Save configuration
+	return m.Dependencies.GetConfigService().Save(m.Config)
+}
+
+// ThemeItem represents a single editable theme item (copied from settings renderer for consistency)
+type ThemeItem struct {
+	name     string
+	value    string
+	itemType string // "color", "icon", "indicator"
+	category string
+}
+
+// getAllThemeItems returns all editable theme items (copied from settings renderer for consistency)
+func (h *KeyHandler) getAllThemeItems(themeConfig theme.Theme) []ThemeItem {
+	var items []ThemeItem
+
+	// Colors
+	items = append(items, []ThemeItem{
 		{"Title", themeConfig.Colors.Title, "color", "Colors"},
 		{"Title Background", themeConfig.Colors.TitleBackground, "color", "Colors"},
 		{"Selected", themeConfig.Colors.Selected, "color", "Colors"},
@@ -512,16 +808,10 @@ func (h *KeyHandler) getThemeItemValue(m Model, itemIndex int) string {
 		{"Regular Icon", themeConfig.Colors.IconRegular, "color", "Colors"},
 		{"Bare Icon", themeConfig.Colors.IconBare, "color", "Colors"},
 		{"Worktree Icon", themeConfig.Colors.IconWorktree, "color", "Colors"},
-	}
-	items = append(items, colorItems...)
+	}...)
 
-	// Status items (12 items)
-	statusItems := []struct {
-		name     string
-		value    string
-		itemType string
-		category string
-	}{
+	// Status colors and indicators
+	items = append(items, []ThemeItem{
 		{"Clean Status Color", themeConfig.Colors.StatusClean, "color", "Status Indicators"},
 		{"Clean Status Icon", themeConfig.Indicators.Clean, "indicator", "Status Indicators"},
 		{"Dirty Status Color", themeConfig.Colors.StatusDirty, "color", "Status Indicators"},
@@ -534,205 +824,24 @@ func (h *KeyHandler) getThemeItemValue(m Model, itemIndex int) string {
 		{"Error Status Icon", themeConfig.Indicators.Error, "indicator", "Status Indicators"},
 		{"Not Added Status Color", themeConfig.Colors.StatusNotAdded, "color", "Status Indicators"},
 		{"Not Added Status Icon", themeConfig.Indicators.NotAdded, "indicator", "Status Indicators"},
-	}
-	items = append(items, statusItems...)
+	}...)
 
-	// Repository icons (3 items)
-	repoItems := []struct {
-		name     string
-		value    string
-		itemType string
-		category string
-	}{
+	// Repository icons
+	items = append(items, []ThemeItem{
 		{"Regular Repository", themeConfig.Icons.Repository.Regular, "icon", "Repository Icons"},
 		{"Bare Repository", themeConfig.Icons.Repository.Bare, "icon", "Repository Icons"},
 		{"Worktree Repository", themeConfig.Icons.Repository.Worktree, "icon", "Repository Icons"},
-	}
-	items = append(items, repoItems...)
+	}...)
 
-	// UI icons (6 items)
-	uiItems := []struct {
-		name     string
-		value    string
-		itemType string
-		category string
-	}{
+	// UI icons
+	items = append(items, []ThemeItem{
 		{"Selected Indicator", themeConfig.Indicators.Selected, "indicator", "UI Icons"},
 		{"Selected End", themeConfig.Indicators.SelectedEnd, "indicator", "UI Icons"},
 		{"Branch Icon", themeConfig.Icons.Branch.Icon, "icon", "UI Icons"},
 		{"Tree Branch", themeConfig.Icons.Tree.Branch, "icon", "UI Icons"},
 		{"Tree Last", themeConfig.Icons.Tree.Last, "icon", "UI Icons"},
 		{"Folder Icon", themeConfig.Icons.Folder.Icon, "icon", "UI Icons"},
-	}
-	items = append(items, uiItems...)
+	}...)
 
-	if itemIndex >= 0 && itemIndex < len(items) {
-		return items[itemIndex].value
-	}
-
-	return ""
-}
-
-// handleThemeEditKeys handles key events when editing a theme item
-func (h *KeyHandler) handleThemeEditKeys(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	keyStr := msg.String()
-
-	switch keyStr {
-	case "ctrl+c", "esc":
-		// Cancel editing
-		m.ThemeEditMode = false
-		m.ThemeEditValue = ""
-		return m, nil
-	case "enter":
-		// Save the edited value
-		return h.saveThemeEdit(m)
-	case "backspace":
-		// Remove last character
-		if len(m.ThemeEditValue) > 0 {
-			m.ThemeEditValue = m.ThemeEditValue[:len(m.ThemeEditValue)-1]
-		}
-		return m, nil
-	default:
-		// Add character to the edit value
-		if len(keyStr) == 1 {
-			m.ThemeEditValue += keyStr
-		}
-		return m, nil
-	}
-}
-
-// saveThemeEdit saves the edited theme value back to the theme configuration
-func (h *KeyHandler) saveThemeEdit(m Model) (Model, tea.Cmd) {
-	// Update the theme configuration with the new value
-	if err := h.updateThemeValue(m, m.ThemeEditItemIndex, m.ThemeEditValue); err != nil {
-		// TODO: Show error to user
-		// For now, just exit edit mode
-		m.ThemeEditMode = false
-		m.ThemeEditValue = ""
-		return m, nil
-	}
-
-	// Save the updated configuration
-	if err := m.Dependencies.GetConfigService().Save(m.Config); err != nil {
-		// TODO: Show error to user
-		// For now, just exit edit mode
-		m.ThemeEditMode = false
-		m.ThemeEditValue = ""
-		return m, nil
-	}
-
-	// Exit edit mode
-	m.ThemeEditMode = false
-	m.ThemeEditValue = ""
-
-	return m, nil
-}
-
-// updateThemeValue updates a specific theme value by index
-func (h *KeyHandler) updateThemeValue(m Model, itemIndex int, newValue string) error {
-	// This needs to update the Config.Theme based on the item index
-	// We need to map the index to the specific theme field
-
-	// For now, let's implement a simple mapping - this would need to be
-	// synchronized with the getAllThemeItems method in the renderer
-	if itemIndex < 0 || itemIndex > 31 {
-		return nil // Invalid index
-	}
-
-	// Colors (0-10)
-	if itemIndex <= 10 {
-		switch itemIndex {
-		case 0:
-			m.Config.Theme.Colors.Title = newValue
-		case 1:
-			m.Config.Theme.Colors.TitleBackground = newValue
-		case 2:
-			m.Config.Theme.Colors.Selected = newValue
-		case 3:
-			m.Config.Theme.Colors.SelectedBackground = newValue
-		case 4:
-			m.Config.Theme.Colors.Help = newValue
-		case 5:
-			m.Config.Theme.Colors.Border = newValue
-		case 6:
-			m.Config.Theme.Colors.ModalBackground = newValue
-		case 7:
-			m.Config.Theme.Colors.Branch = newValue
-		case 8:
-			m.Config.Theme.Colors.IconRegular = newValue
-		case 9:
-			m.Config.Theme.Colors.IconBare = newValue
-		case 10:
-			m.Config.Theme.Colors.IconWorktree = newValue
-		}
-		return nil
-	}
-
-	// Status items (11-22)
-	if itemIndex <= 22 {
-		relativeIndex := itemIndex - 11
-		switch relativeIndex {
-		case 0:
-			m.Config.Theme.Colors.StatusClean = newValue
-		case 1:
-			m.Config.Theme.Indicators.Clean = newValue
-		case 2:
-			m.Config.Theme.Colors.StatusDirty = newValue
-		case 3:
-			m.Config.Theme.Indicators.Dirty = newValue
-		case 4:
-			m.Config.Theme.Colors.StatusUnpushed = newValue
-		case 5:
-			m.Config.Theme.Indicators.Unpushed = newValue
-		case 6:
-			m.Config.Theme.Colors.StatusUntracked = newValue
-		case 7:
-			m.Config.Theme.Indicators.Untracked = newValue
-		case 8:
-			m.Config.Theme.Colors.StatusError = newValue
-		case 9:
-			m.Config.Theme.Indicators.Error = newValue
-		case 10:
-			m.Config.Theme.Colors.StatusNotAdded = newValue
-		case 11:
-			m.Config.Theme.Indicators.NotAdded = newValue
-		}
-		return nil
-	}
-
-	// Repository icons (23-25)
-	if itemIndex <= 25 {
-		relativeIndex := itemIndex - 23
-		switch relativeIndex {
-		case 0:
-			m.Config.Theme.Icons.Repository.Regular = newValue
-		case 1:
-			m.Config.Theme.Icons.Repository.Bare = newValue
-		case 2:
-			m.Config.Theme.Icons.Repository.Worktree = newValue
-		}
-		return nil
-	}
-
-	// UI icons (26-31)
-	if itemIndex <= 31 {
-		relativeIndex := itemIndex - 26
-		switch relativeIndex {
-		case 0:
-			m.Config.Theme.Indicators.Selected = newValue
-		case 1:
-			m.Config.Theme.Indicators.SelectedEnd = newValue
-		case 2:
-			m.Config.Theme.Icons.Branch.Icon = newValue
-		case 3:
-			m.Config.Theme.Icons.Tree.Branch = newValue
-		case 4:
-			m.Config.Theme.Icons.Tree.Last = newValue
-		case 5:
-			m.Config.Theme.Icons.Folder.Icon = newValue
-		}
-		return nil
-	}
-
-	return nil
+	return items
 }
