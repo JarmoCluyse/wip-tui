@@ -161,6 +161,7 @@ func (m Model) renderHelpModal(backgroundView string) string {
 		for _, action := range m.Config.Keybindings.Actions {
 			helpContent.WriteString(fmt.Sprintf("  %-13s %s\n", action.Key, action.Description))
 		}
+		helpContent.WriteString("  e             Open in file manager\n")
 		helpContent.WriteString("  s             Settings\n")
 		helpContent.WriteString("  r/F5          Refresh statuses\n")
 		helpContent.WriteString("  w             Discover worktrees\n\n")

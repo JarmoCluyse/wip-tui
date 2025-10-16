@@ -2,6 +2,8 @@ package ui
 
 import (
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/charmbracelet/bubbletea"
@@ -101,6 +103,8 @@ func (h *KeyHandler) handleListViewKeys(m Model, msg tea.KeyMsg) (tea.Model, tea
 		return h.discoverWorktrees(m)
 	case "r":
 		return m, m.updateRepositoryStatuses()
+	case "e":
+		return h.openInFileManager(m)
 	case "?":
 		return h.toggleHelpModal(m), nil
 	default:
@@ -1099,4 +1103,45 @@ func (h *KeyHandler) removeRepositoryFromPath(m Model, path string) (Model, tea.
 
 	// Update repository list
 	return m, m.updateRepositoryStatuses()
+}
+
+// openInFileManager opens the selected repository path in the system file manager
+func (h *KeyHandler) openInFileManager(m Model) (Model, tea.Cmd) {
+	navigableItems := m.getNavigableItems()
+	if m.Cursor >= len(navigableItems) {
+		return m, nil
+	}
+
+	selectedItem := navigableItems[m.Cursor]
+	if selectedItem.Type != "repository" && selectedItem.Type != "worktree" {
+		return m, nil
+	}
+
+	var path string
+	if selectedItem.Type == "repository" && selectedItem.Repository != nil {
+		path = selectedItem.Repository.Path
+	} else if selectedItem.Type == "worktree" && selectedItem.WorktreeInfo != nil {
+		path = selectedItem.WorktreeInfo.Path
+	} else {
+		return m, nil
+	}
+
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("explorer", path)
+	case "darwin":
+		cmd = exec.Command("open", path)
+	default: // linux and others
+		cmd = exec.Command("sh", "-c", "nohup xdg-open '"+path+"' > /dev/null 2>&1 &")
+	}
+
+	// Execute in background
+	go func() {
+		if err := cmd.Run(); err != nil {
+			logging.Get().Error("failed to open file manager", "error", err, "path", path)
+		}
+	}()
+
+	return m, nil
 }

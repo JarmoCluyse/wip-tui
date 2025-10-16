@@ -53,6 +53,7 @@ func (r *Renderer) RenderRepositoryList(repositories []*repomanager.RepoItem, su
 			Description: action.Description,
 		})
 	}
+	bindings = append(bindings, help.KeyBinding{Key: "e", Description: "open in file manager"})
 	bindings = append(bindings, help.KeyBinding{Key: "s", Description: "settings"})
 
 	return helpBuilder.RenderWithBottomHelpAndHeader(content, bindings, width, height, 4) // Increased header count
@@ -82,6 +83,7 @@ func (r *Renderer) RenderNavigableList(items []types.NavigableItem, summaryData 
 			Description: action.Description,
 		})
 	}
+	bindings = append(bindings, help.KeyBinding{Key: "e", Description: "open in file manager"})
 	bindings = append(bindings, help.KeyBinding{Key: "s", Description: "settings"})
 
 	return helpBuilder.RenderWithBottomHelpAndHeader(content, bindings, width, height, 4) // Increased header count
