@@ -2,21 +2,16 @@ package main
 
 import (
 	"github.com/jarmocluyse/git-dash/internal/config"
-	"github.com/jarmocluyse/git-dash/internal/git"
-	"github.com/jarmocluyse/git-dash/internal/repository"
-	explorerService "github.com/jarmocluyse/git-dash/internal/services/explorer"
-	repositoryService "github.com/jarmocluyse/git-dash/internal/services/repository"
+	"github.com/jarmocluyse/git-dash/internal/repomanager"
 	themeService "github.com/jarmocluyse/git-dash/internal/services/theme"
 	"github.com/jarmocluyse/git-dash/ui"
 )
 
 // AppDependencies implements the ui.Dependencies interface.
 type AppDependencies struct {
-	configService     config.ConfigService
-	statusUpdater     *repository.StatusUpdater
-	repositoryService repositoryService.Service
-	themeService      themeService.Service
-	explorerService   explorerService.Service
+	configService config.ConfigService
+	repoManager   *repomanager.RepoManager
+	themeService  themeService.Service
 }
 
 // NewAppDependencies creates a new dependency container with services.
@@ -28,20 +23,20 @@ func NewAppDependencies(configPath string) *AppDependencies {
 		configService = config.NewFileConfigService()
 	}
 
-	gitChecker := git.NewCachedChecker()
-	statusUpdater := repository.NewStatusUpdater(gitChecker)
-
 	// Create services
-	repositoryManager := repositoryService.NewManager(configService, statusUpdater, gitChecker)
+	repoManager := repomanager.NewRepoManager(configService)
 	themeManager := themeService.NewManager(configService)
-	explorerManager := explorerService.NewManager(gitChecker)
+
+	// Initialize the repo manager
+	if err := repoManager.Init(); err != nil {
+		// Handle error gracefully, but continue
+		// The UI can handle an empty repo manager
+	}
 
 	return &AppDependencies{
-		configService:     configService,
-		statusUpdater:     statusUpdater,
-		repositoryService: repositoryManager,
-		themeService:      themeManager,
-		explorerService:   explorerManager,
+		configService: configService,
+		repoManager:   repoManager,
+		themeService:  themeManager,
 	}
 }
 
@@ -50,9 +45,9 @@ func (d *AppDependencies) GetConfigService() config.ConfigService {
 	return d.configService
 }
 
-// GetRepositoryService returns the repository service.
-func (d *AppDependencies) GetRepositoryService() repositoryService.Service {
-	return d.repositoryService
+// GetRepoManager returns the repository manager.
+func (d *AppDependencies) GetRepoManager() *repomanager.RepoManager {
+	return d.repoManager
 }
 
 // GetThemeService returns the theme service.
@@ -61,8 +56,9 @@ func (d *AppDependencies) GetThemeService() themeService.Service {
 }
 
 // GetExplorerService returns the explorer service.
-func (d *AppDependencies) GetExplorerService() explorerService.Service {
-	return d.explorerService
+func (d *AppDependencies) GetExplorerService() interface{} {
+	// TODO: Implement explorer service with new architecture
+	return nil
 }
 
 // Verify at compile time that AppDependencies implements ui.Dependencies

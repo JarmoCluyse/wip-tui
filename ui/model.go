@@ -3,9 +3,7 @@ package ui
 import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jarmocluyse/git-dash/internal/config"
-	"github.com/jarmocluyse/git-dash/internal/explorer"
-	explorerService "github.com/jarmocluyse/git-dash/internal/services/explorer"
-	repositoryService "github.com/jarmocluyse/git-dash/internal/services/repository"
+	"github.com/jarmocluyse/git-dash/internal/repomanager"
 	themeService "github.com/jarmocluyse/git-dash/internal/services/theme"
 	"github.com/jarmocluyse/git-dash/internal/theme"
 	"github.com/jarmocluyse/git-dash/ui/types"
@@ -15,8 +13,7 @@ type ViewState int
 
 const (
 	ListView ViewState = iota
-	RepoManagementView
-	ExplorerView
+	SettingsView
 	DetailsView
 	ActionConfigView
 )
@@ -24,9 +21,8 @@ const (
 // Dependencies interface defines what the UI needs from the application layer
 type Dependencies interface {
 	GetConfigService() config.ConfigService
-	GetRepositoryService() repositoryService.Service
+	GetRepoManager() *repomanager.RepoManager
 	GetThemeService() themeService.Service
-	GetExplorerService() explorerService.Service
 }
 
 type Model struct {
@@ -38,9 +34,6 @@ type Model struct {
 	ScrollOffset     int // New field for scrolling
 	InputField       string
 	InputPrompt      string
-	ExplorerPath     string
-	ExplorerItems    []explorer.Item
-	ExplorerCursor   int
 	ShowHelpModal    bool
 	Width            int
 	Height           int
@@ -56,11 +49,14 @@ type Model struct {
 	ActionConfigAction   *config.Action // Action being edited
 	ActionConfigIsNew    bool           // Whether we're creating a new action
 
+	// Settings fields
+	SettingsSection string // Current settings section
+	SettingsCursor  int    // Cursor for settings items
+
 	// Handler instances for separated concerns
 	KeyHandler        *KeyHandler
 	NavigationHandler *NavigationHandler
 	RepositoryHandler *RepositoryOperationHandler
-	ExplorerHandler   *ExplorerHandler
 }
 
 type StyleConfig struct {
@@ -119,14 +115,12 @@ func CreateStyleConfig(themeConfig theme.Theme) StyleConfig {
 		HelpModal: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color(themeConfig.Colors.Border)).
-			Background(lipgloss.Color(themeConfig.Colors.ModalBackground)).
 			Padding(1).
 			Width(80).
 			Height(30),
 		HelpModalTitle: lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color(themeConfig.Colors.Title)).
-			Background(lipgloss.Color(themeConfig.Colors.TitleBackground)).
 			Padding(0, 1).
 			Width(76).
 			Align(lipgloss.Center),

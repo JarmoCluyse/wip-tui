@@ -29,7 +29,8 @@ func NewRenderer(styles StyleConfig, themeConfig theme.Theme) *Renderer {
 
 // Render renders the action configuration page
 func (r *Renderer) Render(actions []config.Action, cursor int, width, height int) string {
-	content := r.header.RenderWithSpacing("Action Configuration", width)
+	content := r.header.RenderWithCountAndSpacing("git-dash", "", 1, width)
+	content += r.header.RenderWithSpacing("Action Configuration", width)
 
 	if len(actions) == 0 {
 		content += r.styles.EmptyState.Render("No custom actions configured. Press 'a' to add a new action.") + "\n\n"
@@ -48,7 +49,7 @@ func (r *Renderer) Render(actions []config.Action, cursor int, width, height int
 		{Key: "Esc", Description: "back"},
 	}
 
-	return helpBuilder.RenderWithBottomHelpAndHeader(content, bindings, width, height, 3)
+	return helpBuilder.RenderWithBottomHelpAndHeader(content, bindings, width, height, 4)
 }
 
 // RenderActionEditor renders the action editor interface
@@ -58,7 +59,8 @@ func (r *Renderer) RenderActionEditor(action *config.Action, currentField int, w
 		title = "Add New Action"
 	}
 
-	content := r.header.RenderWithSpacing(title, width)
+	content := r.header.RenderWithCountAndSpacing("git-dash", "", 1, width)
+	content += r.header.RenderWithSpacing(title, width)
 
 	fields := []struct {
 		label string
@@ -96,7 +98,7 @@ func (r *Renderer) RenderActionEditor(action *config.Action, currentField int, w
 		{Key: "Esc", Description: "cancel"},
 	}
 
-	return helpBuilder.RenderWithBottomHelpAndHeader(content, bindings, width, height, 3)
+	return helpBuilder.RenderWithBottomHelpAndHeader(content, bindings, width, height, 4)
 }
 
 // renderActionList renders the list of configured actions

@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"os"
-
 	"github.com/charmbracelet/bubbletea"
 	"github.com/jarmocluyse/git-dash/internal/config"
 )
@@ -18,25 +16,24 @@ func NewModelFactory() *ModelFactory {
 // CreateInitialModel creates and returns an initial Model with default configuration.
 func (f *ModelFactory) CreateInitialModel(deps Dependencies) Model {
 	cfg := f.loadConfiguration(deps)
-	homeDir := f.getHomeDirectory()
 
-	// Initialize repository service with paths from config
-	deps.GetRepositoryService().LoadRepositories(cfg.RepositoryPaths)
+	// The repository manager is already initialized in dependencies
 
 	return Model{
 		Dependencies:     deps,
 		Config:           cfg,
 		State:            ListView,
 		Cursor:           0,
-		ExplorerPath:     homeDir,
-		ExplorerCursor:   0,
 		NavItemsNeedSync: true,
+
+		// Initialize settings fields
+		SettingsSection: "repositories",
+		SettingsCursor:  0,
 
 		// Initialize handler instances
 		KeyHandler:        NewKeyHandler(),
 		NavigationHandler: NewNavigationHandler(),
 		RepositoryHandler: NewRepositoryOperationHandler(),
-		ExplorerHandler:   NewExplorerHandler(),
 	}
 }
 
@@ -52,13 +49,4 @@ func (f *ModelFactory) loadConfiguration(deps Dependencies) *config.Config {
 		return &config.Config{RepositoryPaths: []string{}}
 	}
 	return cfg
-}
-
-// getHomeDirectory returns the user's home directory or "/" as fallback.
-func (f *ModelFactory) getHomeDirectory() string {
-	homeDir, _ := os.UserHomeDir()
-	if homeDir == "" {
-		return "/"
-	}
-	return homeDir
 }

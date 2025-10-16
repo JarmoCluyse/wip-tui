@@ -87,19 +87,22 @@ func (b *Builder) RenderWithBottomHelpAndHeader(content string, bindings []KeyBi
 	// Validate terminal height (this will use default if height is 0)
 	correctedHeight, _ := calc.ValidateTerminalHeight(height)
 
-	// Calculate content area height (reserve 1 line for help + header lines)
-	contentAreaHeight, _ := calc.CalculateContentAreaHeight(correctedHeight, 1+headerLines)
-
 	// Count actual content lines
 	contentLines := calc.CountContentLines(content)
 
-	// Calculate padding needed to position help at bottom
-	paddingLines := calc.CalculatePaddingLines(contentLines, contentAreaHeight)
+	// Calculate padding to push help to the very last line of terminal
+	// Use the original working calculation with the correct offset
+	totalSpaceAvailable := correctedHeight - headerLines
+	paddingLines := totalSpaceAvailable - contentLines - 1 + 3
+	if paddingLines < 0 {
+		paddingLines = 0
+	}
 
 	// Split content into lines and truncate if necessary
 	lines := strings.Split(content, "\n")
-	if len(lines) > contentAreaHeight {
-		lines = lines[:contentAreaHeight]
+	maxContentLines := totalSpaceAvailable - 1 // Reserve 1 line for help
+	if len(lines) > maxContentLines {
+		lines = lines[:maxContentLines]
 		// When content is truncated, no padding is needed - help goes right after content
 		paddingLines = 0
 	}
@@ -114,7 +117,7 @@ func (b *Builder) RenderWithBottomHelpAndHeader(content string, bindings []KeyBi
 		}
 	}
 
-	// Add help at the bottom
+	// Add help at the very bottom - no trailing newline
 	result += helpText
 
 	return result

@@ -71,7 +71,7 @@ func (h *Renderer) RenderWithSpacing(title string, width int) string {
 	return h.Render(title, width) + "\n\n"
 }
 
-// RenderWithCountAndSpacing renders a header with count and adds 2 newlines below.
+// RenderWithCountAndSpacing renders a header with count and adds 1 newline below.
 func (h *Renderer) RenderWithCountAndSpacing(appName, configTitle string, count int, width int) string {
-	return h.RenderWithCount(appName, configTitle, count, width) + "\n\n"
+	return h.RenderWithCount(appName, configTitle, count, width) + "\n"
 }

@@ -47,14 +47,8 @@ func (m Model) handleListViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m.KeyHandler.handleListViewKeys(m, msg)
 }
 
-// handleRepoManagementViewKeys handles keyboard input in the repository management view.
-func (m Model) handleRepoManagementViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+// handleSettingsViewKeys handles keyboard input in the settings view.
+func (m Model) handleSettingsViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Delegate to the KeyHandler for clean separation of concerns
-	return m.KeyHandler.handleRepoManagementViewKeys(m, msg)
-}
-
-// handleExplorerViewKeys handles keyboard input in the directory explorer view.
-func (m Model) handleExplorerViewKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Delegate to the KeyHandler for clean separation of concerns
-	return m.KeyHandler.handleExplorerViewKeys(m, msg)
+	return m.KeyHandler.handleSettingsViewKeys(m, msg)
 }

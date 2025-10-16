@@ -65,7 +65,7 @@ func (h *HeightCalculator) CountContentLines(content string) int {
 
 // CalculatePaddingLines calculates padding needed to position help at bottom
 func (h *HeightCalculator) CalculatePaddingLines(contentLines, availableHeight int) int {
-	paddingNeeded := availableHeight - contentLines
+	paddingNeeded := availableHeight - contentLines - 1
 	if paddingNeeded < 0 {
 		return 0
 	}

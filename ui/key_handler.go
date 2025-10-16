@@ -10,7 +10,6 @@ import (
 type KeyHandler struct {
 	navigationHandler *NavigationHandler
 	repositoryHandler *RepositoryOperationHandler
-	explorerHandler   *ExplorerHandler
 }
 
 // NewKeyHandler creates a new KeyHandler instance.
@@ -18,14 +17,13 @@ func NewKeyHandler() *KeyHandler {
 	return &KeyHandler{
 		navigationHandler: NewNavigationHandler(),
 		repositoryHandler: NewRepositoryOperationHandler(),
-		explorerHandler:   NewExplorerHandler(),
 	}
 }
 
 // HandleKeyPress dispatches key events to appropriate handlers based on current state.
 func (h *KeyHandler) HandleKeyPress(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Log current state and key press
-	stateNames := []string{"ListView", "RepoManagementView", "ExplorerView", "DetailsView", "ActionConfigView"}
+	stateNames := []string{"ListView", "SettingsView", "DetailsView", "ActionConfigView"}
 	stateName := "Unknown"
 	if int(m.State) < len(stateNames) {
 		stateName = stateNames[m.State]
@@ -46,10 +44,8 @@ func (h *KeyHandler) HandleKeyPress(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd
 	switch m.State {
 	case ListView:
 		return h.handleListViewKeys(m, msg)
-	case RepoManagementView:
-		return h.handleRepoManagementViewKeys(m, msg)
-	case ExplorerView:
-		return h.handleExplorerViewKeys(m, msg)
+	case SettingsView:
+		return h.handleSettingsViewKeys(m, msg)
 	case DetailsView:
 		return h.handleDetailsViewKeys(m, msg)
 	case ActionConfigView:
@@ -83,9 +79,18 @@ func (h *KeyHandler) handleListViewKeys(m Model, msg tea.KeyMsg) (tea.Model, tea
 	case "down", "j":
 		return h.navigationHandler.MoveCursorDown(m), nil
 	case "enter":
-		return h.explorerHandler.NavigateToSelected(m)
-	case "m":
-		return h.enterRepoManagementMode(m), nil
+		// Navigate to selected repository details
+		navigableItems := m.getNavigableItems()
+		if m.Cursor < len(navigableItems) {
+			selectedItem := navigableItems[m.Cursor]
+			if selectedItem.Type == "repository" || selectedItem.Type == "worktree" {
+				m.State = DetailsView
+				m.SelectedNavItem = &selectedItem
+			}
+		}
+		return m, nil
+	case "s":
+		return h.enterSettingsMode(m), nil
 	case "w":
 		return h.discoverWorktrees(m)
 	case "r":
@@ -98,30 +103,105 @@ func (h *KeyHandler) handleListViewKeys(m Model, msg tea.KeyMsg) (tea.Model, tea
 	}
 }
 
-// handleRepoManagementViewKeys handles key events in repository management view.
-func (h *KeyHandler) handleRepoManagementViewKeys(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+// handleSettingsViewKeys handles key events in settings view.
+func (h *KeyHandler) handleSettingsViewKeys(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	keyStr := msg.String()
 
 	switch keyStr {
 	case "ctrl+c", "esc":
-		return h.exitRepoManagementMode(m), nil
+		return h.exitSettingsMode(m), nil
 	case "up", "k":
-		return h.navigationHandler.MoveCursorUp(m), nil
+		m.SettingsCursor--
+		if m.SettingsCursor < 0 {
+			m.SettingsCursor = 0
+		}
+		return m, nil
 	case "down", "j":
-		return h.navigationHandler.MoveCursorDown(m), nil
+		// Get appropriate max based on current section
+		var maxItems int
+		switch m.SettingsSection {
+		case "actions":
+			maxItems = len(m.Config.Keybindings.Actions) - 1
+		case "theme":
+			maxItems = 4 // Number of theme items
+		default: // repositories
+			maxItems = len(m.Dependencies.GetRepoManager().GetItems()) - 1
+		}
+		if maxItems >= 0 {
+			m.SettingsCursor++
+			if m.SettingsCursor > maxItems {
+				m.SettingsCursor = maxItems
+			}
+		}
+		return m, nil
+	case "]":
+		// Switch to next tab
+		switch m.SettingsSection {
+		case "repositories", "":
+			m.SettingsSection = "actions"
+		case "actions":
+			m.SettingsSection = "theme"
+		case "theme":
+			m.SettingsSection = "repositories"
+		}
+		m.SettingsCursor = 0
+		return m, nil
+	case "[":
+		// Switch to previous tab
+		switch m.SettingsSection {
+		case "actions":
+			m.SettingsSection = "repositories"
+		case "theme":
+			m.SettingsSection = "actions"
+		case "repositories", "":
+			m.SettingsSection = "theme"
+		}
+		m.SettingsCursor = 0
+		return m, nil
+	case "tab":
+		// Keep tab functionality as fallback (forward only)
+		switch m.SettingsSection {
+		case "repositories", "":
+			m.SettingsSection = "actions"
+		case "actions":
+			m.SettingsSection = "theme"
+		case "theme":
+			m.SettingsSection = "repositories"
+		}
+		m.SettingsCursor = 0
+		return m, nil
 	case "enter":
-		return h.explorerHandler.NavigateToSelected(m)
+		// Navigate to selected item details (for repositories)
+		if m.SettingsSection == "repositories" || m.SettingsSection == "" {
+			navigableItems := m.getNavigableItems()
+			if m.SettingsCursor < len(navigableItems) {
+				selectedItem := navigableItems[m.SettingsCursor]
+				if selectedItem.Type == "repository" || selectedItem.Type == "worktree" {
+					m.State = DetailsView
+					m.SelectedNavItem = &selectedItem
+				}
+			}
+		}
+		return m, nil
 	case "e":
-		return h.explorerHandler.EnterExplorerMode(m)
+		// Edit functionality for various sections
+		return m, nil
 	case "d":
-		return h.repositoryHandler.DeleteSelectedRepository(m)
-	case "c":
-		// Enter action configuration mode
-		m.PreviousState = m.State
-		m.State = ActionConfigView
-		m.ActionConfigCursor = 0
-		m.ActionConfigEditMode = false
-		m.ActionConfigAction = nil
+		// Delete functionality (mainly for repositories)
+		if m.SettingsSection == "repositories" || m.SettingsSection == "" {
+			return h.repositoryHandler.DeleteSelectedRepository(m)
+		}
+		return m, nil
+	case "a":
+		// Add functionality (mainly for actions)
+		if m.SettingsSection == "actions" {
+			m.PreviousState = m.State
+			m.State = ActionConfigView
+			m.ActionConfigCursor = 0
+			m.ActionConfigEditMode = true
+			m.ActionConfigIsNew = true
+			m.ActionConfigAction = &config.Action{}
+		}
 		return m, nil
 	case "r":
 		return m, m.updateRepositoryStatuses()
@@ -131,36 +211,6 @@ func (h *KeyHandler) handleRepoManagementViewKeys(m Model, msg tea.KeyMsg) (tea.
 		return h.toggleHelpModal(m), nil
 	default:
 		return m, nil
-	}
-}
-
-// handleExplorerViewKeys handles key events in explorer view.
-func (h *KeyHandler) handleExplorerViewKeys(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	keyStr := msg.String()
-
-	logging.Get().Debug("explorer key pressed",
-		"key", keyStr,
-		"length", len(keyStr),
-		"bytes", []byte(keyStr))
-
-	switch keyStr {
-	case "ctrl+c", "esc", "q":
-		m.State = m.PreviousState // Return to the previous state
-		return m, nil
-	case "up", "k":
-		return h.navigationHandler.MoveExplorerCursorUp(m), nil
-	case "down", "j":
-		return h.navigationHandler.MoveExplorerCursorDown(m), nil
-	case "enter":
-		return h.explorerHandler.HandleExplorerSelection(m)
-	case "space", " ":
-		logging.Get().Info("space key detected, calling toggleRepositorySelection", "key", keyStr)
-		return h.repositoryHandler.ToggleRepositorySelection(m)
-	case "?":
-		return h.toggleHelpModal(m), nil
-	default:
-		// Check for configurable actions
-		return h.executeConfiguredActionForExplorer(m, keyStr)
 	}
 }
 
@@ -193,7 +243,7 @@ func (h *KeyHandler) handleActionConfigViewKeys(m Model, msg tea.KeyMsg) (tea.Mo
 
 	switch keyStr {
 	case "ctrl+c", "esc":
-		m.State = RepoManagementView
+		m.State = SettingsView
 		return m, nil
 	case "up", "k":
 		if m.ActionConfigCursor > 0 {
@@ -278,17 +328,17 @@ func (h *KeyHandler) handleActionEditKeys(m Model, msg tea.KeyMsg) (tea.Model, t
 	}
 }
 
-// enterRepoManagementMode switches to repository management mode.
-func (h *KeyHandler) enterRepoManagementMode(m Model) Model {
+// enterSettingsMode switches to settings mode.
+func (h *KeyHandler) enterSettingsMode(m Model) Model {
 	m.PreviousState = m.State
-	m.State = RepoManagementView
-	m.InputField = ""
-	m.InputPrompt = "Enter repository path: "
+	m.State = SettingsView
+	m.SettingsSection = "repositories"
+	m.SettingsCursor = 0
 	return m
 }
 
-// exitRepoManagementMode exits repository management mode.
-func (h *KeyHandler) exitRepoManagementMode(m Model) Model {
+// exitSettingsMode exits settings mode.
+func (h *KeyHandler) exitSettingsMode(m Model) Model {
 	m.State = m.PreviousState
 	return m
 }
@@ -344,35 +394,7 @@ func (h *KeyHandler) executeConfiguredAction(m Model, keyStr string) (tea.Model,
 
 // executeConfiguredActionForExplorer executes a configured action in explorer view.
 func (h *KeyHandler) executeConfiguredActionForExplorer(m Model, keyStr string) (tea.Model, tea.Cmd) {
-	// Check for configurable actions
-	if action := m.Config.Keybindings.FindActionByKey(keyStr); action != nil {
-		if m.ExplorerCursor >= len(m.ExplorerItems) {
-			return m, nil
-		}
-
-		selectedItem := m.ExplorerItems[m.ExplorerCursor]
-		targetPath := selectedItem.Path
-
-		// If it's not a git repository, try to find the nearest git repository
-		if !selectedItem.IsGitRepo {
-			// Use the current explorer path as fallback
-			targetPath = m.ExplorerPath
-		}
-
-		// Use the configured action
-		cmd := action.ExecuteOpenAction(targetPath)
-
-		return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
-			if err != nil {
-				logging.Get().Error("failed to run configured action",
-					"error", err,
-					"path", targetPath,
-					"action", action.Name,
-					"key", action.Key)
-			}
-			return nil
-		})
-	}
+	// Explorer functionality temporarily disabled
 	return m, nil
 }
 

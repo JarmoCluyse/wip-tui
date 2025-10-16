@@ -1,5 +1,9 @@
 package ui
 
+import (
+	"github.com/jarmocluyse/git-dash/ui/layout"
+)
+
 // NavigationHandler manages cursor movement and navigation operations.
 type NavigationHandler struct{}
 
@@ -32,29 +36,21 @@ func (h *NavigationHandler) MoveCursorDown(m Model) Model {
 	return m
 }
 
-// MoveExplorerCursorUp moves the explorer cursor up.
-func (h *NavigationHandler) MoveExplorerCursorUp(m Model) Model {
-	if m.ExplorerCursor > 0 {
-		m.ExplorerCursor--
-	}
-	return m
-}
-
-// MoveExplorerCursorDown moves the explorer cursor down.
-func (h *NavigationHandler) MoveExplorerCursorDown(m Model) Model {
-	if m.ExplorerCursor < len(m.ExplorerItems)-1 {
-		m.ExplorerCursor++
-	}
-	return m
-}
-
 // GetVisibleItemCount returns the number of visible items based on terminal height.
 func (h *NavigationHandler) GetVisibleItemCount(m Model) int {
-	availableHeight := m.Height - 6
-	if availableHeight < 3 {
-		availableHeight = 15
+	// Use the height calculator to determine content area
+	calc := layout.NewHeightCalculator()
+
+	// Reserve space for help (1 line) and any header lines (varies by page)
+	// For home page, typically 4 header lines
+	headerLines := 4
+	helpLines := 1
+
+	contentHeight, _ := calc.CalculateContentAreaHeight(m.Height, headerLines+helpLines)
+	if contentHeight < 3 {
+		contentHeight = 15
 	}
-	itemsPerScreen := availableHeight
+	itemsPerScreen := contentHeight
 	if itemsPerScreen < 5 {
 		itemsPerScreen = 10
 	}
@@ -63,8 +59,8 @@ func (h *NavigationHandler) GetVisibleItemCount(m Model) int {
 
 // AdjustCursorAfterDeletion adjusts cursor position after a repository deletion.
 func (h *NavigationHandler) AdjustCursorAfterDeletion(m Model) int {
-	repositories := m.Dependencies.GetRepositoryService().GetRepositories()
-	maxValidIndex := len(repositories) - 1
+	items := m.Dependencies.GetRepoManager().GetItems()
+	maxValidIndex := len(items) - 1
 
 	if maxValidIndex < 0 {
 		return 0

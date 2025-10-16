@@ -20,12 +20,11 @@ sections := []help.HelpSection{
 		},
 	},
 	{
-		Title: "Repository Management",
+		Title: "Actions",
 		Bindings: []help.KeyBinding{
-			{"a", "manage repositories"},
-			{"e", "explore directories"},
-			{"d", "delete repository"},
-			{"r", "refresh status"},
+			{"l", "open in Lazygit"},
+			{"c", "open in VS Code"},
+			{"m", "manage repositories"},
 		},
 	},
 	{

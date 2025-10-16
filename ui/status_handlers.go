@@ -10,8 +10,8 @@ type StatusUpdateComplete struct{}
 // updateRepositoryStatuses initiates an asynchronous update of all repository statuses.
 func (m Model) updateRepositoryStatuses() tea.Cmd {
 	return tea.Cmd(func() tea.Msg {
-		// Use repository service to update all statuses
-		m.Dependencies.GetRepositoryService().UpdateAllRepositoryStatuses()
+		// Use repo manager to update all statuses
+		m.Dependencies.GetRepoManager().ReloadStatus()
 
 		// Return a simple message indicating status update is complete
 		return StatusUpdateComplete{}
