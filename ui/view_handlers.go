@@ -108,7 +108,7 @@ func (m Model) renderSettingsView() string {
 		currentSection = settings.RepositoriesSection
 	}
 
-	return renderer.Render(data, currentSection, m.SettingsCursor, m.Width, m.Height, m.ThemeEditMode, m.ThemeEditValue, m.ActionEditMode, m.ActionEditValue, m.ActionEditFieldType, m.ActionEditItemIndex)
+	return renderer.Render(data, currentSection, m.SettingsCursor, m.Width, m.Height, m.ThemeEditMode, m.ThemeEditValue, m.ActionEditMode, m.ActionEditValue, m.ActionEditFieldType, m.ActionEditItemIndex, m.RepoActiveSection, m.RepoExplorer, m.RepoPasteMode, m.RepoPasteValue)
 }
 
 // NewDetailsViewRenderer creates a new details view renderer with the given styles and theme.

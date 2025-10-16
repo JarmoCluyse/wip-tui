@@ -8,6 +8,7 @@ import (
 	"github.com/jarmocluyse/git-dash/internal/config"
 	"github.com/jarmocluyse/git-dash/internal/repomanager"
 	"github.com/jarmocluyse/git-dash/internal/theme"
+	"github.com/jarmocluyse/git-dash/ui/components/direxplorer"
 	"github.com/jarmocluyse/git-dash/ui/components/help"
 	"github.com/jarmocluyse/git-dash/ui/header"
 )
@@ -44,7 +45,7 @@ func NewRenderer(styles StyleConfig, themeConfig theme.Theme) *Renderer {
 }
 
 // Render renders the settings page with all sections
-func (r *Renderer) Render(data SettingsData, currentSection SettingsSection, cursor int, width, height int, themeEditMode bool, themeEditValue string, actionEditMode bool, actionEditValue string, actionEditFieldType string, actionEditItemIndex int) string {
+func (r *Renderer) Render(data SettingsData, currentSection SettingsSection, cursor int, width, height int, themeEditMode bool, themeEditValue string, actionEditMode bool, actionEditValue string, actionEditFieldType string, actionEditItemIndex int, repoActiveSection string, repoExplorer *direxplorer.Explorer, repoPasteMode bool, repoPasteValue string) string {
 	content := r.header.RenderWithCountAndSpacing("git-dash", "", 1, width)
 	content += r.header.RenderWithSpacing("Settings", width)
 
@@ -53,7 +54,7 @@ func (r *Renderer) Render(data SettingsData, currentSection SettingsSection, cur
 
 	switch currentSection {
 	case RepositoriesSection:
-		content += r.renderRepositoriesSection(data.Repositories, cursor, width)
+		content += r.renderRepositoriesSection(data.Repositories, cursor, width, height, repoActiveSection, repoExplorer, repoPasteMode, repoPasteValue)
 	case ActionsSection:
 		content += r.renderActionsSection(data.Actions, cursor, width, actionEditMode, actionEditValue, actionEditFieldType, actionEditItemIndex)
 	case ThemeSection:
@@ -92,22 +93,20 @@ func (r *Renderer) renderSectionNavigation(currentSection SettingsSection, width
 	return strings.Join(tabs, " | ")
 }
 
-// renderRepositoriesSection renders the repositories settings section
-func (r *Renderer) renderRepositoriesSection(repositories []*repomanager.RepoItem, cursor int, width int) string {
-	var content string
-	content += r.styles.SectionTitle.Render(fmt.Sprintf("Repositories (%d):", len(repositories))) + "\n\n"
+// renderRepositoriesSection renders the repositories settings section with two-part layout
+func (r *Renderer) renderRepositoriesSection(repositories []*repomanager.RepoItem, cursor int, width, height int, activeSection string, explorer *direxplorer.Explorer, pasteMode bool, pasteValue string) string {
+	// Calculate layout - split the width roughly in half
+	leftWidth := width / 2
+	rightWidth := width - leftWidth - 3 // Account for separator
 
-	if len(repositories) == 0 {
-		content += r.styles.EmptyState.Render("No repositories configured. Press 'e' to explore and add repositories.") + "\n\n"
-		return content
-	}
+	// Create left side - repositories list
+	leftContent := r.renderRepositoriesList(repositories, cursor, leftWidth, activeSection == "list")
 
-	for i, repo := range repositories {
-		isSelected := i == cursor
-		content += r.renderRepositoryItem(repo, isSelected, width)
-	}
+	// Create right side - explorer and paste input
+	rightContent := r.renderRepositoryAdder(explorer, pasteMode, pasteValue, rightWidth, height, activeSection)
 
-	return content
+	// Combine left and right with separator
+	return r.combineSideBySide(leftContent, rightContent, leftWidth, rightWidth)
 }
 
 // renderActionsSection renders the actions settings section with edit support
@@ -266,6 +265,141 @@ func (r *Renderer) renderRepositoryItem(repo *repomanager.RepoItem, isSelected b
 	}
 
 	return style.Render(repoLine) + "\n"
+}
+
+// renderRepositoriesList renders the left side repositories list
+func (r *Renderer) renderRepositoriesList(repositories []*repomanager.RepoItem, cursor int, width int, isActive bool) string {
+	var content string
+
+	// Title with active indicator
+	titleStyle := r.styles.SectionTitle
+	if isActive {
+		titleStyle = titleStyle.Foreground(lipgloss.Color(r.theme.Colors.Selected))
+	}
+	content += titleStyle.Render(fmt.Sprintf("Repositories (%d)", len(repositories))) + "\n\n"
+
+	if len(repositories) == 0 {
+		content += r.styles.EmptyState.Render("No repositories configured") + "\n"
+		content += r.styles.EmptyState.Render("Use explorer to add repos →") + "\n\n"
+		return content
+	}
+
+	for i, repo := range repositories {
+		isSelected := i == cursor && isActive
+		content += r.renderRepositoryItem(repo, isSelected, width)
+	}
+
+	return content
+}
+
+// renderRepositoryAdder renders the right side explorer and paste input
+func (r *Renderer) renderRepositoryAdder(explorer *direxplorer.Explorer, pasteMode bool, pasteValue string, width, height int, activeSection string) string {
+	var content string
+
+	// Title with active indicator
+	titleStyle := r.styles.SectionTitle
+	if activeSection == "explorer" || activeSection == "paste" {
+		titleStyle = titleStyle.Foreground(lipgloss.Color(r.theme.Colors.Selected))
+	}
+	content += titleStyle.Render("Add Repository") + "\n\n"
+
+	// Directory Explorer section
+	explorerHeight := height - 8 // Reserve space for title, paste section, and padding
+	if explorerHeight < 5 {
+		explorerHeight = 5
+	}
+
+	if explorer != nil {
+		explorerContent := explorer.Render(width, explorerHeight)
+		if activeSection == "explorer" {
+			// Add border to show it's active
+			explorerContent = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color(r.theme.Colors.Selected)).
+				Padding(0, 1).
+				Render(explorerContent)
+		}
+		content += explorerContent + "\n"
+	} else {
+		content += r.styles.EmptyState.Render("Explorer not available") + "\n"
+	}
+
+	// Separator
+	content += r.styles.Item.Render(strings.Repeat("─", width-2)) + "\n\n"
+
+	// Paste input section
+	pasteTitle := "Paste Path"
+	if activeSection == "paste" {
+		pasteTitle = "→ " + pasteTitle
+	}
+	content += r.styles.SectionTitle.Render(pasteTitle) + "\n"
+
+	// Help text for paste mode
+	if !pasteMode {
+		helpText := "Press 'a' to add repository by path"
+		content += r.styles.Help.Render(helpText) + "\n"
+	}
+
+	// Input field
+	inputValue := pasteValue
+	if pasteMode && activeSection == "paste" {
+		inputValue += "│"
+	} else if !pasteMode {
+		inputValue = "[Enter path here]"
+	}
+
+	inputStyle := r.styles.Item
+	if activeSection == "paste" {
+		inputStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(r.theme.Colors.Selected)).
+			Padding(0, 1).
+			Width(width - 4)
+	} else {
+		inputStyle = inputStyle.Width(width - 4)
+	}
+
+	content += inputStyle.Render(inputValue) + "\n"
+
+	return content
+}
+
+// combineSideBySide combines left and right content side by side
+func (r *Renderer) combineSideBySide(left, right string, leftWidth, rightWidth int) string {
+	leftLines := strings.Split(strings.TrimRight(left, "\n"), "\n")
+	rightLines := strings.Split(strings.TrimRight(right, "\n"), "\n")
+
+	// Ensure both sides have the same number of lines
+	maxLines := len(leftLines)
+	if len(rightLines) > maxLines {
+		maxLines = len(rightLines)
+	}
+
+	// Pad shorter side with empty lines
+	for len(leftLines) < maxLines {
+		leftLines = append(leftLines, "")
+	}
+	for len(rightLines) < maxLines {
+		rightLines = append(rightLines, "")
+	}
+
+	var result []string
+	separator := " │ "
+
+	for i := 0; i < maxLines; i++ {
+		// Ensure left side is exactly leftWidth
+		leftLine := leftLines[i]
+		if lipgloss.Width(leftLine) > leftWidth {
+			leftLine = leftLine[:leftWidth-3] + "..."
+		} else {
+			leftLine = leftLine + strings.Repeat(" ", leftWidth-lipgloss.Width(leftLine))
+		}
+
+		combinedLine := leftLine + separator + rightLines[i]
+		result = append(result, combinedLine)
+	}
+
+	return strings.Join(result, "\n") + "\n"
 }
 
 // renderActionItem renders a single action item
@@ -477,10 +611,10 @@ func (r *Renderer) getHelpBindings(currentSection SettingsSection) []help.KeyBin
 	switch currentSection {
 	case RepositoriesSection:
 		return append(commonBindings, []help.KeyBinding{
-			{Key: "e", Description: "explore"},
+			{Key: "Tab", Description: "switch section"},
+			{Key: "Enter", Description: "select/add"},
 			{Key: "d", Description: "delete"},
 			{Key: "r", Description: "refresh"},
-			{Key: "Enter", Description: "details"},
 		}...)
 	case ActionsSection:
 		return append(commonBindings, []help.KeyBinding{

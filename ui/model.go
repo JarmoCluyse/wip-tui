@@ -6,6 +6,7 @@ import (
 	"github.com/jarmocluyse/git-dash/internal/repomanager"
 	themeService "github.com/jarmocluyse/git-dash/internal/services/theme"
 	"github.com/jarmocluyse/git-dash/internal/theme"
+	"github.com/jarmocluyse/git-dash/ui/components/direxplorer"
 	"github.com/jarmocluyse/git-dash/ui/types"
 )
 
@@ -63,6 +64,12 @@ type Model struct {
 	ThemeEditMode      bool   // Whether we're editing a theme item
 	ThemeEditValue     string // Current value being edited
 	ThemeEditItemIndex int    // Index of item being edited
+
+	// Repository management fields
+	RepoActiveSection string                // Which section is active: "list", "explorer", "paste"
+	RepoExplorer      *direxplorer.Explorer // Directory explorer instance
+	RepoPasteMode     bool                  // Whether paste input is active
+	RepoPasteValue    string                // Current paste input value
 
 	// Handler instances for separated concerns
 	KeyHandler        *KeyHandler

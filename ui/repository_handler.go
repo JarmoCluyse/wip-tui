@@ -39,6 +39,14 @@ func (h *RepositoryOperationHandler) DeleteSelectedRepository(m Model) (Model, t
 	return m, m.updateRepositoryStatuses()
 }
 
+// AddRepository adds a new repository from the given path.
+func (h *RepositoryOperationHandler) AddRepository(m Model, path string) error {
+	// Add the repository using the repository manager
+	m.Dependencies.GetRepoManager().AddRepo(path)
+	m.NavItemsNeedSync = true
+	return nil
+}
+
 // RemoveRepositoryByPath removes a repository by its path.
 func (h *RepositoryOperationHandler) RemoveRepositoryByPath(m Model, path string) {
 	m.Dependencies.GetRepoManager().RemoveRepo(path)

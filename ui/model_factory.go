@@ -30,6 +30,12 @@ func (f *ModelFactory) CreateInitialModel(deps Dependencies) Model {
 		SettingsSection: "repositories",
 		SettingsCursor:  0,
 
+		// Initialize repository management fields
+		RepoActiveSection: "list", // Start with repository list active
+		RepoExplorer:      nil,    // Will be initialized when needed
+		RepoPasteMode:     false,
+		RepoPasteValue:    "",
+
 		// Initialize handler instances
 		KeyHandler:        NewKeyHandler(),
 		NavigationHandler: NewNavigationHandler(),

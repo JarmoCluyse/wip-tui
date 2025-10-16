@@ -1,12 +1,15 @@
 package ui
 
 import (
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/jarmocluyse/git-dash/internal/config"
 	"github.com/jarmocluyse/git-dash/internal/logging"
 	"github.com/jarmocluyse/git-dash/internal/theme"
+	"github.com/jarmocluyse/git-dash/ui/components/direxplorer"
 )
 
 // KeyHandler manages keyboard input handling for different view states.
@@ -120,16 +123,29 @@ func (h *KeyHandler) handleSettingsViewKeys(m Model, msg tea.KeyMsg) (tea.Model,
 		return h.handleActionEditKeysInSettings(m, msg)
 	}
 
+	// If we're in repository section and dealing with paste mode
+	if (m.SettingsSection == "repositories" || m.SettingsSection == "") && m.RepoPasteMode {
+		return h.handleRepositoryPasteKeys(m, msg)
+	}
+
 	switch keyStr {
 	case "ctrl+c", "esc":
 		return h.exitSettingsMode(m), nil
 	case "up", "k":
+		// If in repository section, handle navigation based on active section
+		if m.SettingsSection == "repositories" || m.SettingsSection == "" {
+			return h.handleRepositoryUpNavigation(m)
+		}
 		m.SettingsCursor--
 		if m.SettingsCursor < 0 {
 			m.SettingsCursor = 0
 		}
 		return m, nil
 	case "down", "j":
+		// If in repository section, handle navigation based on active section
+		if m.SettingsSection == "repositories" || m.SettingsSection == "" {
+			return h.handleRepositoryDownNavigation(m)
+		}
 		// Get appropriate max based on current section
 		var maxItems int
 		switch m.SettingsSection {
@@ -173,10 +189,12 @@ func (h *KeyHandler) handleSettingsViewKeys(m Model, msg tea.KeyMsg) (tea.Model,
 		m.SettingsCursor = 0
 		return m, nil
 	case "tab":
-		// Keep tab functionality as fallback (forward only)
+		// Handle tab navigation for repositories section
+		if m.SettingsSection == "repositories" || m.SettingsSection == "" {
+			return h.handleRepositoryTabNavigation(m)
+		}
+		// Keep tab functionality as fallback (forward only) for other sections
 		switch m.SettingsSection {
-		case "repositories", "":
-			m.SettingsSection = "actions"
 		case "actions":
 			m.SettingsSection = "theme"
 		case "theme":
@@ -185,16 +203,15 @@ func (h *KeyHandler) handleSettingsViewKeys(m Model, msg tea.KeyMsg) (tea.Model,
 		m.SettingsCursor = 0
 		return m, nil
 	case "enter":
-		// Navigate to selected item details (for repositories)
+		// Handle enter key for repositories section
 		if m.SettingsSection == "repositories" || m.SettingsSection == "" {
-			navigableItems := m.getNavigableItems()
-			if m.SettingsCursor < len(navigableItems) {
-				selectedItem := navigableItems[m.SettingsCursor]
-				if selectedItem.Type == "repository" || selectedItem.Type == "worktree" {
-					m.State = DetailsView
-					m.SelectedNavItem = &selectedItem
-				}
-			}
+			return h.handleRepositoryEnterNavigation(m)
+		}
+		return m, nil
+	case " ":
+		// Handle space key for repositories section
+		if m.SettingsSection == "repositories" || m.SettingsSection == "" {
+			return h.handleRepositorySpaceToggle(m)
 		}
 		return m, nil
 	case "e":
@@ -219,6 +236,11 @@ func (h *KeyHandler) handleSettingsViewKeys(m Model, msg tea.KeyMsg) (tea.Model,
 		// Add functionality
 		if m.SettingsSection == "actions" {
 			return h.addNewActionInSettings(m)
+		} else if m.SettingsSection == "repositories" || m.SettingsSection == "" {
+			// Activate paste mode for adding repositories
+			m.RepoActiveSection = "paste"
+			m.RepoPasteMode = true
+			return m, nil
 		}
 		return m, nil
 	case "r":
@@ -844,4 +866,237 @@ func (h *KeyHandler) getAllThemeItems(themeConfig theme.Theme) []ThemeItem {
 	}...)
 
 	return items
+}
+
+// handleRepositoryTabNavigation handles Tab navigation within repository sections
+func (h *KeyHandler) handleRepositoryTabNavigation(m Model) (Model, tea.Cmd) {
+	switch m.RepoActiveSection {
+	case "list":
+		m.RepoActiveSection = "explorer"
+		// Initialize explorer if not already done
+		if m.RepoExplorer == nil {
+			m = h.initializeExplorer(m)
+		} else {
+			// Update repository list when switching to explorer
+			h.updateExplorerRepositoryList(m)
+		}
+	case "explorer":
+		m.RepoActiveSection = "list"
+	case "paste":
+		// Paste mode stays in paste, use 'a' to activate and 'esc' to exit
+		m.RepoActiveSection = "list"
+	default:
+		m.RepoActiveSection = "list"
+	}
+	return m, nil
+}
+
+// handleRepositoryPasteKeys handles key events when in paste input mode
+func (h *KeyHandler) handleRepositoryPasteKeys(m Model, msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	keyStr := msg.String()
+
+	switch keyStr {
+	case "ctrl+c", "esc":
+		// Exit paste mode
+		m.RepoPasteMode = false
+		m.RepoPasteValue = ""
+		return m, nil
+	case "enter":
+		// Add repository from paste input
+		if m.RepoPasteValue != "" {
+			return h.addRepositoryFromPath(m, m.RepoPasteValue)
+		}
+		return m, nil
+	case "backspace":
+		// Remove last character
+		if len(m.RepoPasteValue) > 0 {
+			m.RepoPasteValue = m.RepoPasteValue[:len(m.RepoPasteValue)-1]
+		}
+		return m, nil
+	default:
+		// Add character to paste value
+		if len(keyStr) == 1 {
+			m.RepoPasteValue += keyStr
+		}
+		return m, nil
+	}
+}
+
+// initializeExplorer initializes the directory explorer
+func (h *KeyHandler) initializeExplorer(m Model) Model {
+	// Start from user's home directory
+	homeDir := "."
+	if userHome := os.Getenv("HOME"); userHome != "" {
+		homeDir = userHome
+	}
+
+	// Create explorer styles based on current theme
+	explorerStyles := direxplorer.StyleConfig{
+		Directory:    lipgloss.NewStyle().Foreground(lipgloss.Color(m.Config.Theme.Colors.Branch)),
+		File:         lipgloss.NewStyle().Foreground(lipgloss.Color(m.Config.Theme.Colors.Help)),
+		GitRepo:      lipgloss.NewStyle().Foreground(lipgloss.Color(m.Config.Theme.Colors.Selected)).Bold(true),
+		BareRepo:     lipgloss.NewStyle().Foreground(lipgloss.Color(m.Config.Theme.Colors.IconBare)).Bold(true),
+		AlreadyAdded: lipgloss.NewStyle().Foreground(lipgloss.Color(m.Config.Theme.Colors.StatusClean)),
+		Selected:     lipgloss.NewStyle().Foreground(lipgloss.Color(m.Config.Theme.Colors.Selected)).Bold(true),
+		CurrentPath:  lipgloss.NewStyle().Foreground(lipgloss.Color(m.Config.Theme.Colors.Title)).Bold(true),
+		EmptyState:   lipgloss.NewStyle().Foreground(lipgloss.Color(m.Config.Theme.Colors.Help)),
+	}
+
+	m.RepoExplorer = direxplorer.NewExplorer(homeDir, explorerStyles, m.Config.Theme)
+
+	// Update the explorer with already-added repository paths
+	h.updateExplorerRepositoryList(m)
+
+	return m
+}
+
+// updateExplorerRepositoryList updates the explorer with the current list of added repositories
+func (h *KeyHandler) updateExplorerRepositoryList(m Model) {
+	if m.RepoExplorer != nil {
+		repoItems := m.Dependencies.GetRepoManager().GetItems()
+		var repoPaths []string
+		for _, item := range repoItems {
+			repoPaths = append(repoPaths, item.Path)
+		}
+		m.RepoExplorer.UpdateAddedRepositories(repoPaths)
+	}
+}
+
+// addRepositoryFromPath adds a repository from the given path
+func (h *KeyHandler) addRepositoryFromPath(m Model, path string) (Model, tea.Cmd) {
+	// Clean the path
+	cleanPath := strings.TrimSpace(path)
+	if cleanPath == "" {
+		return m, nil
+	}
+
+	// Add the repository using the repository handler
+	if err := h.repositoryHandler.AddRepository(m, cleanPath); err != nil {
+		// TODO: Show error to user
+		logging.Get().Error("failed to add repository from path", "error", err, "path", cleanPath)
+		return m, nil
+	}
+
+	// Clear paste input and exit paste mode
+	m.RepoPasteMode = false
+	m.RepoPasteValue = ""
+
+	// Update the explorer's repository list
+	h.updateExplorerRepositoryList(m)
+
+	// Update repository list
+	return m, m.updateRepositoryStatuses()
+}
+
+// handleRepositoryUpNavigation handles up navigation in repository sections
+func (h *KeyHandler) handleRepositoryUpNavigation(m Model) (Model, tea.Cmd) {
+	switch m.RepoActiveSection {
+	case "list":
+		// Navigate up in repository list
+		m.SettingsCursor--
+		if m.SettingsCursor < 0 {
+			m.SettingsCursor = 0
+		}
+	case "explorer":
+		// Navigate up in directory explorer
+		if m.RepoExplorer != nil {
+			m.RepoExplorer.MoveCursorUp()
+		}
+	case "paste":
+		// In paste mode, up navigation doesn't do anything special
+	}
+	return m, nil
+}
+
+// handleRepositoryDownNavigation handles down navigation in repository sections
+func (h *KeyHandler) handleRepositoryDownNavigation(m Model) (Model, tea.Cmd) {
+	switch m.RepoActiveSection {
+	case "list":
+		// Navigate down in repository list
+		maxItems := len(m.Dependencies.GetRepoManager().GetItems()) - 1
+		if maxItems >= 0 {
+			m.SettingsCursor++
+			if m.SettingsCursor > maxItems {
+				m.SettingsCursor = maxItems
+			}
+		}
+	case "explorer":
+		// Navigate down in directory explorer
+		if m.RepoExplorer != nil {
+			m.RepoExplorer.MoveCursorDown()
+		}
+	case "paste":
+		// In paste mode, down navigation doesn't do anything special
+	}
+	return m, nil
+}
+
+// handleRepositoryEnterNavigation handles enter key in repository sections
+func (h *KeyHandler) handleRepositoryEnterNavigation(m Model) (Model, tea.Cmd) {
+	switch m.RepoActiveSection {
+	case "list":
+		// Navigate to selected item details (for repositories)
+		navigableItems := m.getNavigableItems()
+		if m.SettingsCursor < len(navigableItems) {
+			selectedItem := navigableItems[m.SettingsCursor]
+			if selectedItem.Type == "repository" || selectedItem.Type == "worktree" {
+				m.State = DetailsView
+				m.SelectedNavItem = &selectedItem
+			}
+		}
+	case "explorer":
+		// Enter directory only (space is used for repository toggle)
+		if m.RepoExplorer != nil {
+			selectedItem := m.RepoExplorer.GetSelectedItem()
+			if selectedItem != nil && selectedItem.IsDir && !selectedItem.IsGitRepo {
+				// Enter directory (only for non-git directories)
+				m.RepoExplorer.NavigateInto()
+			}
+		}
+	case "paste":
+		// Add repository from paste input
+		if m.RepoPasteValue != "" {
+			return h.addRepositoryFromPath(m, m.RepoPasteValue)
+		}
+	}
+	return m, nil
+}
+
+// handleRepositorySpaceToggle handles space key for toggling repositories
+func (h *KeyHandler) handleRepositorySpaceToggle(m Model) (Model, tea.Cmd) {
+	switch m.RepoActiveSection {
+	case "explorer":
+		// Toggle repository add/remove with space
+		if m.RepoExplorer != nil {
+			selectedItem := m.RepoExplorer.GetSelectedItem()
+			if selectedItem != nil && selectedItem.IsGitRepo {
+				if selectedItem.IsAlreadyAdded {
+					// Remove repository
+					return h.removeRepositoryFromPath(m, selectedItem.Path)
+				} else {
+					// Add repository
+					return h.addRepositoryFromPath(m, selectedItem.Path)
+				}
+			}
+		}
+	case "list":
+		// In list view, space could toggle repository enable/disable (future feature)
+		// For now, do nothing
+	case "paste":
+		// In paste mode, space adds a space character
+		m.RepoPasteValue += " "
+	}
+	return m, nil
+}
+
+// removeRepositoryFromPath removes a repository from the given path and updates the UI
+func (h *KeyHandler) removeRepositoryFromPath(m Model, path string) (Model, tea.Cmd) {
+	// Remove the repository using the repository handler
+	h.repositoryHandler.RemoveRepositoryByPath(m, path)
+
+	// Update the explorer's repository list
+	h.updateExplorerRepositoryList(m)
+
+	// Update repository list
+	return m, m.updateRepositoryStatuses()
 }

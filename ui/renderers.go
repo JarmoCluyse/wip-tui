@@ -4,6 +4,7 @@ import (
 	"github.com/jarmocluyse/git-dash/internal/config"
 	"github.com/jarmocluyse/git-dash/internal/repomanager"
 	"github.com/jarmocluyse/git-dash/internal/theme"
+	"github.com/jarmocluyse/git-dash/ui/components/direxplorer"
 	actionconfig "github.com/jarmocluyse/git-dash/ui/pages/action-config"
 	"github.com/jarmocluyse/git-dash/ui/pages/home"
 	settings "github.com/jarmocluyse/git-dash/ui/pages/settings"
@@ -89,6 +90,6 @@ func NewSettingsRenderer(styles StyleConfig, themeConfig theme.Theme) *SettingsR
 }
 
 // Render renders the settings view.
-func (r *SettingsRenderer) Render(data settings.SettingsData, currentSection settings.SettingsSection, cursor int, width, height int, themeEditMode bool, themeEditValue string, actionEditMode bool, actionEditValue string, actionEditFieldType string, actionEditItemIndex int) string {
-	return r.settingsRenderer.Render(data, currentSection, cursor, width, height, themeEditMode, themeEditValue, actionEditMode, actionEditValue, actionEditFieldType, actionEditItemIndex)
+func (r *SettingsRenderer) Render(data settings.SettingsData, currentSection settings.SettingsSection, cursor int, width, height int, themeEditMode bool, themeEditValue string, actionEditMode bool, actionEditValue string, actionEditFieldType string, actionEditItemIndex int, repoActiveSection string, repoExplorer *direxplorer.Explorer, repoPasteMode bool, repoPasteValue string) string {
+	return r.settingsRenderer.Render(data, currentSection, cursor, width, height, themeEditMode, themeEditValue, actionEditMode, actionEditValue, actionEditFieldType, actionEditItemIndex, repoActiveSection, repoExplorer, repoPasteMode, repoPasteValue)
 }
