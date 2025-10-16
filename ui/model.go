@@ -53,6 +53,11 @@ type Model struct {
 	SettingsSection string // Current settings section
 	SettingsCursor  int    // Cursor for settings items
 
+	// Theme editing fields
+	ThemeEditMode      bool   // Whether we're editing a theme item
+	ThemeEditValue     string // Current value being edited
+	ThemeEditItemIndex int    // Index of item being edited
+
 	// Handler instances for separated concerns
 	KeyHandler        *KeyHandler
 	NavigationHandler *NavigationHandler

@@ -89,6 +89,6 @@ func NewSettingsRenderer(styles StyleConfig, themeConfig theme.Theme) *SettingsR
 }
 
 // Render renders the settings view.
-func (r *SettingsRenderer) Render(data settings.SettingsData, currentSection settings.SettingsSection, cursor int, width, height int) string {
-	return r.settingsRenderer.Render(data, currentSection, cursor, width, height)
+func (r *SettingsRenderer) Render(data settings.SettingsData, currentSection settings.SettingsSection, cursor int, width, height int, themeEditMode bool, themeEditValue string) string {
+	return r.settingsRenderer.Render(data, currentSection, cursor, width, height, themeEditMode, themeEditValue)
 }

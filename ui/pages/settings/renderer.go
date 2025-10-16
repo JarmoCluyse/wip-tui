@@ -44,7 +44,7 @@ func NewRenderer(styles StyleConfig, themeConfig theme.Theme) *Renderer {
 }
 
 // Render renders the settings page with all sections
-func (r *Renderer) Render(data SettingsData, currentSection SettingsSection, cursor int, width, height int) string {
+func (r *Renderer) Render(data SettingsData, currentSection SettingsSection, cursor int, width, height int, themeEditMode bool, themeEditValue string) string {
 	content := r.header.RenderWithCountAndSpacing("git-dash", "", 1, width)
 	content += r.header.RenderWithSpacing("Settings", width)
 
@@ -57,7 +57,7 @@ func (r *Renderer) Render(data SettingsData, currentSection SettingsSection, cur
 	case ActionsSection:
 		content += r.renderActionsSection(data.Actions, cursor, width)
 	case ThemeSection:
-		content += r.renderThemeSection(data.Theme, cursor, width)
+		content += r.renderThemeSection(data.Theme, cursor, width, themeEditMode, themeEditValue)
 	}
 
 	// Use help component to render with bottom-aligned help
@@ -128,28 +128,116 @@ func (r *Renderer) renderActionsSection(actions []config.Action, cursor int, wid
 	return content
 }
 
-// renderThemeSection renders the theme settings section
-func (r *Renderer) renderThemeSection(themeConfig theme.Theme, cursor int, width int) string {
+// renderThemeSection renders the theme settings section with full editor
+func (r *Renderer) renderThemeSection(themeConfig theme.Theme, cursor int, width int, themeEditMode bool, themeEditValue string) string {
 	var content string
-	content += r.styles.SectionTitle.Render("Theme Settings:") + "\n\n"
+	content += r.styles.SectionTitle.Render("Theme Editor:") + "\n\n"
 
-	themeItems := []struct {
-		name  string
-		value string
-	}{
-		{"Primary Color", themeConfig.Colors.Selected},
-		{"Title Color", themeConfig.Colors.Title},
-		{"Help Color", themeConfig.Colors.Help},
-		{"Error Color", themeConfig.Colors.StatusError},
-		{"Branch Color", themeConfig.Colors.Branch},
+	// Create all theme items in categories
+	themeItems := r.getAllThemeItems(themeConfig)
+
+	if len(themeItems) == 0 {
+		content += r.styles.EmptyState.Render("No theme items available.") + "\n\n"
+		return content
 	}
 
-	for i, item := range themeItems {
-		isSelected := i == cursor
-		content += r.renderThemeItem(item.name, item.value, isSelected, width)
+	// Group items by category for display
+	categories := r.groupThemeItemsByCategory(themeItems)
+
+	itemIndex := 0
+	for _, category := range []string{"Colors", "Status Indicators", "Repository Icons", "UI Icons"} {
+		if items, exists := categories[category]; exists {
+			// Category header
+			content += r.styles.SectionTitle.Render(fmt.Sprintf("%s:", category)) + "\n"
+
+			// Render items in this category
+			for _, item := range items {
+				isSelected := itemIndex == cursor
+				if themeEditMode && isSelected {
+					// Show edit mode for this item
+					content += r.renderThemeItemEdit(item.name, themeEditValue, item.itemType, width)
+				} else {
+					content += r.renderThemeItem(item.name, item.value, item.itemType, isSelected, width)
+				}
+				itemIndex++
+			}
+			content += "\n"
+		}
 	}
 
 	return content
+}
+
+// ThemeItem represents a single editable theme item
+type ThemeItem struct {
+	name     string
+	value    string
+	itemType string // "color", "icon", "indicator"
+	category string
+}
+
+// getAllThemeItems returns all editable theme items
+func (r *Renderer) getAllThemeItems(themeConfig theme.Theme) []ThemeItem {
+	var items []ThemeItem
+
+	// Colors
+	items = append(items, []ThemeItem{
+		{"Title", themeConfig.Colors.Title, "color", "Colors"},
+		{"Title Background", themeConfig.Colors.TitleBackground, "color", "Colors"},
+		{"Selected", themeConfig.Colors.Selected, "color", "Colors"},
+		{"Selected Background", themeConfig.Colors.SelectedBackground, "color", "Colors"},
+		{"Help Text", themeConfig.Colors.Help, "color", "Colors"},
+		{"Border", themeConfig.Colors.Border, "color", "Colors"},
+		{"Modal Background", themeConfig.Colors.ModalBackground, "color", "Colors"},
+		{"Branch", themeConfig.Colors.Branch, "color", "Colors"},
+		{"Regular Icon", themeConfig.Colors.IconRegular, "color", "Colors"},
+		{"Bare Icon", themeConfig.Colors.IconBare, "color", "Colors"},
+		{"Worktree Icon", themeConfig.Colors.IconWorktree, "color", "Colors"},
+	}...)
+
+	// Status colors and indicators
+	items = append(items, []ThemeItem{
+		{"Clean Status Color", themeConfig.Colors.StatusClean, "color", "Status Indicators"},
+		{"Clean Status Icon", themeConfig.Indicators.Clean, "indicator", "Status Indicators"},
+		{"Dirty Status Color", themeConfig.Colors.StatusDirty, "color", "Status Indicators"},
+		{"Dirty Status Icon", themeConfig.Indicators.Dirty, "indicator", "Status Indicators"},
+		{"Unpushed Status Color", themeConfig.Colors.StatusUnpushed, "color", "Status Indicators"},
+		{"Unpushed Status Icon", themeConfig.Indicators.Unpushed, "indicator", "Status Indicators"},
+		{"Untracked Status Color", themeConfig.Colors.StatusUntracked, "color", "Status Indicators"},
+		{"Untracked Status Icon", themeConfig.Indicators.Untracked, "indicator", "Status Indicators"},
+		{"Error Status Color", themeConfig.Colors.StatusError, "color", "Status Indicators"},
+		{"Error Status Icon", themeConfig.Indicators.Error, "indicator", "Status Indicators"},
+		{"Not Added Status Color", themeConfig.Colors.StatusNotAdded, "color", "Status Indicators"},
+		{"Not Added Status Icon", themeConfig.Indicators.NotAdded, "indicator", "Status Indicators"},
+	}...)
+
+	// Repository icons
+	items = append(items, []ThemeItem{
+		{"Regular Repository", themeConfig.Icons.Repository.Regular, "icon", "Repository Icons"},
+		{"Bare Repository", themeConfig.Icons.Repository.Bare, "icon", "Repository Icons"},
+		{"Worktree Repository", themeConfig.Icons.Repository.Worktree, "icon", "Repository Icons"},
+	}...)
+
+	// UI icons
+	items = append(items, []ThemeItem{
+		{"Selected Indicator", themeConfig.Indicators.Selected, "indicator", "UI Icons"},
+		{"Selected End", themeConfig.Indicators.SelectedEnd, "indicator", "UI Icons"},
+		{"Branch Icon", themeConfig.Icons.Branch.Icon, "icon", "UI Icons"},
+		{"Tree Branch", themeConfig.Icons.Tree.Branch, "icon", "UI Icons"},
+		{"Tree Last", themeConfig.Icons.Tree.Last, "icon", "UI Icons"},
+		{"Folder Icon", themeConfig.Icons.Folder.Icon, "icon", "UI Icons"},
+	}...)
+
+	return items
+}
+
+// groupThemeItemsByCategory groups theme items by their category
+func (r *Renderer) groupThemeItemsByCategory(items []ThemeItem) map[string][]ThemeItem {
+	categories := make(map[string][]ThemeItem)
+	for _, item := range items {
+		categories[item.category] = append(categories[item.category], item)
+	}
+	return categories
 }
 
 // renderRepositoryItem renders a single repository item
@@ -193,8 +281,8 @@ func (r *Renderer) renderActionItem(action config.Action, isSelected bool, width
 	return style.Render(actionLine) + "\n"
 }
 
-// renderThemeItem renders a single theme item
-func (r *Renderer) renderThemeItem(name, value string, isSelected bool, width int) string {
+// renderThemeItem renders a single theme item with appropriate preview
+func (r *Renderer) renderThemeItem(name, value, itemType string, isSelected bool, width int) string {
 	var style = r.styles.Item
 	if isSelected {
 		style = r.styles.SelectedItem
@@ -207,14 +295,66 @@ func (r *Renderer) renderThemeItem(name, value string, isSelected bool, width in
 		frontIndicator = strings.Repeat(" ", lipgloss.Width(r.theme.Indicators.Selected))
 	}
 
-	colorPreview := lipgloss.NewStyle().
-		Background(lipgloss.Color(value)).
-		Foreground(lipgloss.Color("#000000")).
-		Render("  ")
+	var preview string
+	switch itemType {
+	case "color":
+		// Color preview with background
+		preview = lipgloss.NewStyle().
+			Background(lipgloss.Color(value)).
+			Foreground(lipgloss.Color("#000000")).
+			Render("  ")
+	case "icon", "indicator":
+		// Icon/indicator preview - show the actual symbol
+		preview = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(r.theme.Colors.Selected)).
+			Render(fmt.Sprintf("[%s]", value))
+	default:
+		preview = value
+	}
 
-	themeLine := fmt.Sprintf(" %s%s: %s %s", frontIndicator, name, colorPreview, value)
+	themeLine := fmt.Sprintf(" %s%s: %s %s", frontIndicator, name, preview, value)
 
 	return style.Render(themeLine) + "\n"
+}
+
+// renderThemeItemEdit renders a theme item in edit mode with input field
+func (r *Renderer) renderThemeItemEdit(name, editValue, itemType string, width int) string {
+	style := r.styles.SelectedItem
+
+	frontIndicator := r.theme.Indicators.Selected
+
+	var preview string
+	switch itemType {
+	case "color":
+		// Color preview with background using edit value
+		preview = lipgloss.NewStyle().
+			Background(lipgloss.Color(editValue)).
+			Foreground(lipgloss.Color("#000000")).
+			Render("  ")
+	case "icon", "indicator":
+		// Icon/indicator preview - show the actual symbol
+		preview = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(r.theme.Colors.Selected)).
+			Render(fmt.Sprintf("[%s]", editValue))
+	default:
+		preview = editValue
+	}
+
+	// Show input field with cursor
+	editField := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(r.theme.Colors.Selected)).
+		Padding(0, 1).
+		Render(editValue + "|")
+
+	// Show the theme item on first line, edit field on second line at the beginning
+	baseLine := fmt.Sprintf(" %s%s: %s", frontIndicator, name, preview)
+
+	// Put edit field at the beginning of the next line (no indentation)
+	line1 := style.Render(baseLine)
+	line2 := style.Render(editField)
+
+	return line1 + "\n" + line2 + "\n"
 }
 
 // getHelpBindings returns the help bindings for the current section
@@ -241,8 +381,9 @@ func (r *Renderer) getHelpBindings(currentSection SettingsSection) []help.KeyBin
 		}...)
 	case ThemeSection:
 		return append(commonBindings, []help.KeyBinding{
-			{Key: "e", Description: "edit"},
-			{Key: "r", Description: "reset"},
+			{Key: "e", Description: "edit value"},
+			{Key: "Enter", Description: "save (when editing)"},
+			{Key: "Esc", Description: "cancel edit"},
 		}...)
 	default:
 		return commonBindings
