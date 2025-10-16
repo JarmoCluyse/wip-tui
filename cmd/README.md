@@ -10,4 +10,3 @@ Application entry point and dependency injection.
 - Logger initialization
 - Bubble Tea program creation and execution
 - Dependency injection for core services
-

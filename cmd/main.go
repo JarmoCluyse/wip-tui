@@ -1,4 +1,4 @@
-// Package main provides the entry point for the wip-tui application.
+// Package main provides the entry point for the git-dash application.
 package main
 
 import (
@@ -7,13 +7,13 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/jarmocluyse/wip-tui/internal/cli"
-	"github.com/jarmocluyse/wip-tui/internal/env"
-	"github.com/jarmocluyse/wip-tui/internal/logging"
-	"github.com/jarmocluyse/wip-tui/internal/ui"
+	"github.com/jarmocluyse/git-dash/internal/cli"
+	"github.com/jarmocluyse/git-dash/internal/env"
+	"github.com/jarmocluyse/git-dash/internal/logging"
+	"github.com/jarmocluyse/git-dash/ui"
 )
 
-// main initializes and runs the wip-tui application.
+// main initializes and runs the git-dash application.
 func main() {
 	// Parse command line arguments
 	args, err := cli.ParseArgs()

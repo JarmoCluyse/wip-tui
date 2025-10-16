@@ -13,7 +13,7 @@ var logger *slog.Logger
 // Falls back to stderr if file creation fails.
 func Init() {
 	// Create a file for logging
-	logFile, err := os.OpenFile("wip-tui.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile("git-dash.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		// Fallback to stderr if file creation fails
 		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
@@ -29,7 +29,7 @@ func Init() {
 	}))
 
 	// Log that logger was initialized
-	logger.Info("logger initialized successfully", "log_file", "wip-tui.log")
+	logger.Info("logger initialized successfully", "log_file", "git-dash.log")
 }
 
 // Get returns the global logger instance, initializing it if necessary.

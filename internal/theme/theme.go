@@ -3,64 +3,66 @@ package theme
 
 // Theme represents the complete theme configuration.
 type Theme struct {
-	Colors     Colors     `toml:"colors"`
-	Indicators Indicators `toml:"indicators"`
-	Icons      Icons      `toml:"icons"`
+	Colors     Colors     `yaml:"colors"`
+	Indicators Indicators `yaml:"indicators"`
+	Icons      Icons      `yaml:"icons"`
 }
 
 // Colors defines all color values used in the UI.
 type Colors struct {
-	Title              string `toml:"title"`
-	TitleBackground    string `toml:"title_background"`
-	Selected           string `toml:"selected"`
-	SelectedBackground string `toml:"selected_background"`
-	StatusClean        string `toml:"status_clean"`
-	StatusDirty        string `toml:"status_dirty"`
-	StatusUnpushed     string `toml:"status_unpushed"`
-	StatusUntracked    string `toml:"status_untracked"`
-	StatusError        string `toml:"status_error"`
-	StatusNotAdded     string `toml:"status_not_added"`
-	Help               string `toml:"help"`
-	Border             string `toml:"border"`
-	ModalBackground    string `toml:"modal_background"`
-	Branch             string `toml:"branch"`
-	IconRegular        string `toml:"icon_regular"`
-	IconBare           string `toml:"icon_bare"`
-	IconWorktree       string `toml:"icon_worktree"`
+	Title              string `yaml:"title"`
+	TitleBackground    string `yaml:"title_background"`
+	Selected           string `yaml:"selected"`
+	SelectedBackground string `yaml:"selected_background"`
+	StatusClean        string `yaml:"status_clean"`
+	StatusDirty        string `yaml:"status_dirty"`
+	StatusUnpushed     string `yaml:"status_unpushed"`
+	StatusUntracked    string `yaml:"status_untracked"`
+	StatusError        string `yaml:"status_error"`
+	StatusNotAdded     string `yaml:"status_not_added"`
+	Help               string `yaml:"help"`
+	Border             string `yaml:"border"`
+	ModalBackground    string `yaml:"modal_background"`
+	Branch             string `yaml:"branch"`
+	IconRegular        string `yaml:"icon_regular"`
+	IconBare           string `yaml:"icon_bare"`
+	IconWorktree       string `yaml:"icon_worktree"`
 }
 
 // Indicators defines all status indicator symbols.
 type Indicators struct {
-	Clean       string `toml:"clean"`
-	Dirty       string `toml:"dirty"`
-	Unpushed    string `toml:"unpushed"`
-	Untracked   string `toml:"untracked"`
-	Error       string `toml:"error"`
-	NotAdded    string `toml:"not_added"`
-	Selected    string `toml:"selected"`
-	SelectedEnd string `toml:"selected_end"`
+	Clean       string `yaml:"clean"`
+	Dirty       string `yaml:"dirty"`
+	Unpushed    string `yaml:"unpushed"`
+	Untracked   string `yaml:"untracked"`
+	Error       string `yaml:"error"`
+	NotAdded    string `yaml:"not_added"`
+	Selected    string `yaml:"selected"`
+	SelectedEnd string `yaml:"selected_end"`
 }
 
 // Icons defines all icon symbols used in the UI.
 type Icons struct {
 	Repository struct {
-		Regular  string `toml:"regular"`
-		Bare     string `toml:"bare"`
-		Worktree string `toml:"worktree"`
-	} `toml:"repository"`
+		Regular  string `yaml:"regular"`
+		Bare     string `yaml:"bare"`
+		Worktree string `yaml:"worktree"`
+	} `yaml:"repository"`
 	Branch struct {
-		Icon string `toml:"icon"`
-	} `toml:"branch"`
+		Icon string `yaml:"icon"`
+	} `yaml:"branch"`
 	Tree struct {
-		Branch string `toml:"branch"`
-		Last   string `toml:"last"`
-	} `toml:"tree"`
+		Branch string `yaml:"branch"`
+		Last   string `yaml:"last"`
+	} `yaml:"tree"`
 	Folder struct {
-		Icon string `toml:"icon"`
-	} `toml:"folder"`
+		Icon string `yaml:"icon"`
+	} `yaml:"folder"`
 }
 
 // Default returns the default theme configuration.
+// This is the authoritative source for all theme defaults.
+// Config files can override individual values which will be merged with these defaults.
 func Default() Theme {
 	return Theme{
 		Colors: Colors{
@@ -94,28 +96,28 @@ func Default() Theme {
 		},
 		Icons: Icons{
 			Repository: struct {
-				Regular  string `toml:"regular"`
-				Bare     string `toml:"bare"`
-				Worktree string `toml:"worktree"`
+				Regular  string `yaml:"regular"`
+				Bare     string `yaml:"bare"`
+				Worktree string `yaml:"worktree"`
 			}{
 				Regular:  "󰊢 ",
 				Bare:     "󰉋 ",
 				Worktree: "󰐅 ",
 			},
 			Branch: struct {
-				Icon string `toml:"icon"`
+				Icon string `yaml:"icon"`
 			}{
 				Icon: "󰘬 ",
 			},
 			Tree: struct {
-				Branch string `toml:"branch"`
-				Last   string `toml:"last"`
+				Branch string `yaml:"branch"`
+				Last   string `yaml:"last"`
 			}{
 				Branch: "├─",
 				Last:   "└─",
 			},
 			Folder: struct {
-				Icon string `toml:"icon"`
+				Icon string `yaml:"icon"`
 			}{
 				Icon: "󰉋 ",
 			},
@@ -124,6 +126,8 @@ func Default() Theme {
 }
 
 // MergeWithDefault takes a user theme and fills in any missing values with defaults.
+// This allows config files to specify only the values they want to override,
+// while ensuring all theme properties have valid values.
 func MergeWithDefault(userTheme Theme) Theme {
 	defaultTheme := Default()
 

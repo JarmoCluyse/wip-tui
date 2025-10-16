@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/jarmocluyse/wip-tui/internal/git"
-	"github.com/jarmocluyse/wip-tui/internal/repository"
+	"github.com/jarmocluyse/git-dash/internal/git"
+	"github.com/jarmocluyse/git-dash/internal/repository"
 )
 
 // CleanFileSystemExplorer implements directory exploration with git repository awareness.

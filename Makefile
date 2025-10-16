@@ -1,11 +1,11 @@
-# Git TUI Makefile
+# Git Dash Makefile
 
 .PHONY: build clean run test install uninstall help
 
 # Binary name
-BINARY_NAME=git-tui
-CACHED_BINARY_NAME=git-tui-cached
-OPTIMIZED_BINARY_NAME=git-tui-optimized
+BINARY_NAME=git-dash
+CACHED_BINARY_NAME=git-dash-cached
+OPTIMIZED_BINARY_NAME=git-dash-optimized
 
 # Go parameters
 GOCMD=go
@@ -44,15 +44,15 @@ run: build
 
 ## run-custom: Build and run with custom config
 run-custom: build
-	./$(BINARY_NAME) -c test_configs/custom.toml
+	./$(BINARY_NAME) -c test_configs/custom.yaml
 
 ## run-lot: Build and run with lot config (moderate repos)
 run-lot: build
-	./$(BINARY_NAME) -c test_configs/lot.toml
+	./$(BINARY_NAME) -c test_configs/lot.yaml
 
 ## run-alot: Build and run with alot config (many repos)  
 run-alot: build
-	./$(BINARY_NAME) -c test_configs/alot.toml
+	./$(BINARY_NAME) -c test_configs/alot.yaml
 
 ## run-cached: Build and run cached version
 run-cached: build-cached
@@ -60,15 +60,15 @@ run-cached: build-cached
 
 ## run-cached-custom: Build and run cached version with custom config
 run-cached-custom: build-cached
-	./$(CACHED_BINARY_NAME) -c test_configs/custom.toml
+	./$(CACHED_BINARY_NAME) -c test_configs/custom.yaml
 
 ## run-cached-lot: Build and run cached version with lot config
 run-cached-lot: build-cached
-	./$(CACHED_BINARY_NAME) -c test_configs/lot.toml
+	./$(CACHED_BINARY_NAME) -c test_configs/lot.yaml
 
 ## run-cached-alot: Build and run cached version with alot config
 run-cached-alot: build-cached
-	./$(CACHED_BINARY_NAME) -c test_configs/alot.toml
+	./$(CACHED_BINARY_NAME) -c test_configs/alot.yaml
 
 ## run-optimized: Build and run optimized version
 run-optimized: build-optimized
@@ -76,29 +76,29 @@ run-optimized: build-optimized
 
 ## run-optimized-custom: Build and run optimized version with custom config
 run-optimized-custom: build-optimized
-	./$(OPTIMIZED_BINARY_NAME) -c test_configs/custom.toml
+	./$(OPTIMIZED_BINARY_NAME) -c test_configs/custom.yaml
 
 ## run-optimized-lot: Build and run optimized version with lot config
 run-optimized-lot: build-optimized
-	./$(OPTIMIZED_BINARY_NAME) -c test_configs/lot.toml
+	./$(OPTIMIZED_BINARY_NAME) -c test_configs/lot.yaml
 
 ## run-optimized-alot: Build and run optimized version with alot config
 run-optimized-alot: build-optimized
-	./$(OPTIMIZED_BINARY_NAME) -c test_configs/alot.toml
+	./$(OPTIMIZED_BINARY_NAME) -c test_configs/alot.yaml
 
 ## perf-test: Performance comparison between regular and cached versions
 perf-test: build build-cached
 	@echo "Testing regular version with alot config..."
-	@time timeout 3s ./$(BINARY_NAME) -c test_configs/alot.toml || true
+	@time timeout 3s ./$(BINARY_NAME) -c test_configs/alot.yaml || true
 	@echo "\nTesting cached version with alot config..."
-	@time timeout 3s ./$(CACHED_BINARY_NAME) -c test_configs/alot.toml || true
+	@time timeout 3s ./$(CACHED_BINARY_NAME) -c test_configs/alot.yaml || true
 
 ## perf-test-optimized: Performance comparison between cached and optimized versions
 perf-test-optimized: build-cached build-optimized
 	@echo "Testing cached version with alot config..."
-	@time timeout 3s ./$(CACHED_BINARY_NAME) -c test_configs/alot.toml || true
+	@time timeout 3s ./$(CACHED_BINARY_NAME) -c test_configs/alot.yaml || true
 	@echo "\nTesting optimized version with alot config..."
-	@time timeout 3s ./$(OPTIMIZED_BINARY_NAME) -c test_configs/alot.toml || true
+	@time timeout 3s ./$(OPTIMIZED_BINARY_NAME) -c test_configs/alot.yaml || true
 
 ## test: Run tests
 test:

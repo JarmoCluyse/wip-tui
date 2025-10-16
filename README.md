@@ -1,6 +1,6 @@
-# Git TUI - Repository Status Monitor
+# Git Dash - Repository Status Dashboard
 
-A clean, minimal TUI application for monitoring Git repository status across multiple repositories, with full support for bare repositories, worktrees, and a built-in folder explorer.
+A clean, minimal dashboard application for monitoring Git repository status across multiple repositories, with full support for bare repositories, worktrees, and a built-in folder explorer.
 
 ## Features
 
@@ -29,13 +29,13 @@ go build .
 
 ### Running
 ```bash
-./git-tui
+./git-dash
 ```
 
 ### Command Line Options
 
 ```bash
-./git-tui [options]
+./git-dash [options]
 ```
 
 **Options:**
@@ -45,11 +45,11 @@ go build .
 
 **Examples:**
 ```bash
-./git-tui                              # Use default config (~/.git-tui.toml)
-./git-tui -c ~/.config/git-tui.toml    # Use custom config file
-./git-tui --config /path/to/config.toml
-./git-tui --help                       # Show detailed help
-./git-tui --version                    # Show version information
+./git-dash                              # Use default config (~/.git-dash.yaml)
+./git-dash -c ~/.config/git-tui.yaml    # Use custom config file
+./git-dash --config /path/to/config.yaml
+./git-dash --help                       # Show detailed help
+./git-dash --version                    # Show version information
 ```
 
 ### Repository Discovery Workflow
@@ -115,7 +115,7 @@ go build .
 
 ## Bare Repository + Worktree Support
 
-This TUI is designed with bare repository workflows in mind:
+This dashboard is designed with bare repository workflows in mind:
 
 - **Bare Repository Detection**: Automatically detects bare repos using `git rev-parse --is-bare-repository`
 - **Worktree Enumeration**: Uses `git worktree list --porcelain` to discover all worktrees
@@ -124,68 +124,79 @@ This TUI is designed with bare repository workflows in mind:
 
 ## Configuration
 
-Configuration is stored in TOML format. The default location is `~/.git-tui.toml`, but you can specify a custom location using the `--config` flag.
+Configuration is stored in YAML format. The default location is `~/.git-dash.yaml`, but you can specify a custom location using the `--config` flag.
 
 **Default Configuration Locations (in order of priority):**
 1. Path specified with `--config` or `-c` flag
-2. Path specified in `GIT_TUI_CONFIG` environment variable  
-3. `~/.git-tui.toml` (default)
+2. Path specified in `GIT_DASH_CONFIG` environment variable  
+3. `~/.git-dash.yaml` (default)
 
 **Example Configuration:**
-```toml
-repository_paths = [
-    "/path/to/repo1",
-    "/path/to/repo2"
-]
+```yaml
+repository_paths:
+  - "/path/to/repo1"
+  - "/path/to/repo2"
 
 # Configurable keybindings for repository actions
-[[keybindings.actions]]
-name = "Lazygit"
-key = "l"
-command = "lazygit"
-args = ["-p", "{path}"]
-description = "Open repository in Lazygit"
+keybindings:
+  actions:
+    - name: "Lazygit"
+      key: "l"
+      command: "lazygit"
+      args: ["-p", "{path}"]
+      description: "Open repository in Lazygit"
+    
+    - name: "VS Code"
+      key: "c"
+      command: "code"
+      args: ["{path}"]
+      description: "Open repository in VS Code"
+    
+    - name: "Terminal"
+      key: "t"
+      command: "gnome-terminal"
+      args: ["--working-directory={path}"]
+      description: "Open terminal in repository directory"
 
-[[keybindings.actions]]
-name = "VS Code"
-key = "c"
-command = "code"
-args = ["{path}"]
-description = "Open repository in VS Code"
-
-[[keybindings.actions]]
-name = "Terminal"
-key = "t"
-command = "gnome-terminal"
-args = ["--working-directory={path}"]
-description = "Open terminal in repository directory"
-
-[theme.colors]
-title = "#FF6B6B"
-title_background = "#000000"
-selected = "#4ECDC4"
-status_dirty = "#FFE66D"
-status_unpushed = "#FF6B6B"
-status_untracked = "#95E1D3"
-status_error = "#F38BA8"
-status_clean = "#A8E6CF"
-status_not_added = "#FFB6C1"
-help = "#B0B0B0"
-border = "#4A4A4A"
-modal_background = "#1A1A1A"
-
-[theme.indicators]
-clean = "✨"
-dirty = "🔥"
-unpushed = "⬆️"
-untracked = "❓"
-error = "💥"
-not_added = "➕"
+theme:
+  colors:
+    title: "#FF6B6B"
+    title_background: "#000000"
+    selected: "#4ECDC4"
+    status_dirty: "#FFE66D"
+    status_unpushed: "#FF6B6B"
+    status_untracked: "#95E1D3"
+    status_error: "#F38BA8"
+    status_clean: "#A8E6CF"
+    status_not_added: "#FFB6C1"
+    help: "#B0B0B0"
+    border: "#4A4A4A"
+    modal_background: "#1A1A1A"
+  
+  indicators:
+    clean: "✨"
+    dirty: "🔥"
+    unpushed: "⬆️"
+    untracked: "❓"
+    error: "💥"
+    not_added: "➕"
 ```
 
-**Customizable Theme Options:**
+**Theme Customization:**
+- **Default Theme**: All theme defaults are defined in code, ensuring the app always has a working theme
+- **Partial Overrides**: You only need to specify the theme values you want to change in your config file
 - **Colors**: All UI colors can be customized using hex color codes
 - **Indicators**: Status indicators can be customized with any Unicode characters/emojis
+- **Icons**: Repository and UI icons can be customized
+
+**Example - Override just a few colors:**
+```yaml
+theme:
+  colors:
+    title: "#FF0000"           # Only override title color
+    status_clean: "#00FF00"    # Only override clean status color
+    # All other colors will use built-in defaults
+```
 
 ### Configurable Actions
 
@@ -197,42 +208,39 @@ You can configure custom keybindings to open repositories in your preferred tool
 - `t` - Open terminal in repository directory
 
 **Example Configuration:**
-```toml
-[[keybindings.actions]]
-name = "Lazygit"
-key = "l"
-command = "lazygit"
-args = ["-p", "{path}"]
-description = "Open repository in Lazygit"
-
-[[keybindings.actions]]
-name = "VS Code"
-key = "c" 
-command = "code"
-args = ["{path}"]
-description = "Open repository in VS Code"
-
-[[keybindings.actions]]
-name = "Terminal"
-key = "t"
-command = "gnome-terminal"
-args = ["--working-directory={path}"]
-description = "Open terminal in repository directory"
-
-# Add your own custom actions
-[[keybindings.actions]]
-name = "GitHub Desktop"
-key = "g"
-command = "github-desktop"
-args = ["{path}"]
-description = "Open repository in GitHub Desktop"
-
-[[keybindings.actions]]
-name = "Custom Script"
-key = "s"
-command = "/path/to/your/script.sh"
-args = ["{path}", "--verbose"]
-description = "Run custom script on repository"
+```yaml
+keybindings:
+  actions:
+    - name: "Lazygit"
+      key: "l"
+      command: "lazygit"
+      args: ["-p", "{path}"]
+      description: "Open repository in Lazygit"
+    
+    - name: "VS Code"
+      key: "c"
+      command: "code"
+      args: ["{path}"]
+      description: "Open repository in VS Code"
+    
+    - name: "Terminal"
+      key: "t"
+      command: "gnome-terminal"
+      args: ["--working-directory={path}"]
+      description: "Open terminal in repository directory"
+    
+    # Add your own custom actions
+    - name: "GitHub Desktop"
+      key: "g"
+      command: "github-desktop"
+      args: ["{path}"]
+      description: "Open repository in GitHub Desktop"
+    
+    - name: "Custom Script"
+      key: "s"
+      command: "/path/to/your/script.sh"
+      args: ["{path}", "--verbose"]
+      description: "Run custom script on repository"
 ```
 
 **Configuration Details:**
@@ -259,3 +267,5 @@ This application follows Clean Architecture principles:
 - **Frameworks**: Bubbletea TUI framework, file I/O
 
 Dependencies flow inward, making the code testable and maintainable.
+
+**Note**: Despite the new name "Git Dash", this remains a terminal-based application with the same TUI (Terminal User Interface) functionality.

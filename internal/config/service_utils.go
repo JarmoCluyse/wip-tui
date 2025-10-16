@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/BurntSushi/toml"
-	"github.com/jarmocluyse/wip-tui/internal/theme"
+	"github.com/jarmocluyse/git-dash/internal/theme"
+	"gopkg.in/yaml.v3"
 )
 
 // getConfigPath determines the configuration file path.
@@ -16,7 +16,7 @@ func (f *FileConfigService) getConfigPath() (string, error) {
 	}
 
 	// Check for environment variable override
-	if configPath := os.Getenv("GIT_TUI_CONFIG"); configPath != "" {
+	if configPath := os.Getenv("GIT_DASH_CONFIG"); configPath != "" {
 		return configPath, nil
 	}
 
@@ -24,7 +24,7 @@ func (f *FileConfigService) getConfigPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(homeDir, ".git-tui.toml"), nil
+	return filepath.Join(homeDir, ".git-dash.yaml"), nil
 }
 
 // configExists checks if configuration file exists.
@@ -35,9 +35,8 @@ func (f *FileConfigService) configExists(path string) bool {
 
 // createEmptyConfig creates a default configuration.
 func (f *FileConfigService) createEmptyConfig() *Config {
-	// Use theme loader to get the proper theme with loading order
-	themeLoader := theme.NewLoader()
-	loadedTheme, _ := themeLoader.LoadTheme()
+	// Use the default theme from code
+	loadedTheme := theme.Default()
 
 	// Default actions with keybindings
 	defaultActions := []Action{
@@ -66,7 +65,7 @@ func (f *FileConfigService) createEmptyConfig() *Config {
 	}
 }
 
-// loadFromFile loads configuration from TOML file.
+// loadFromFile loads configuration from YAML file.
 func (f *FileConfigService) loadFromFile(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -76,26 +75,24 @@ func (f *FileConfigService) loadFromFile(path string) (*Config, error) {
 	// Start with default config
 	config := f.createEmptyConfig()
 
-	// Decode TOML over the defaults
-	_, err = toml.Decode(string(data), config)
+	// Decode YAML over the defaults
+	err = yaml.Unmarshal(data, config)
 	if err != nil {
 		return nil, err
 	}
 
-	// Ensure theme has all default values if missing
+	// Merge user theme overrides with code defaults
 	config.Theme = theme.MergeWithDefault(config.Theme)
 
 	return config, nil
 }
 
-// writeToFile writes configuration to TOML file.
+// writeToFile writes configuration to YAML file.
 func (f *FileConfigService) writeToFile(path string, config *Config) error {
-	file, err := os.Create(path)
+	data, err := yaml.Marshal(config)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
-	encoder := toml.NewEncoder(file)
-	return encoder.Encode(config)
+	return os.WriteFile(path, data, 0644)
 }

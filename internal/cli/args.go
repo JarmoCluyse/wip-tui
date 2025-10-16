@@ -23,7 +23,7 @@ type Parser struct {
 // NewParser creates a new CLI argument parser.
 func NewParser() *Parser {
 	args := &Args{}
-	flagSet := flag.NewFlagSet("git-tui", flag.ExitOnError)
+	flagSet := flag.NewFlagSet("git-dash", flag.ExitOnError)
 
 	flagSet.Usage = PrintUsage(flagSet)
 
@@ -46,7 +46,7 @@ func (p *Parser) Parse(args []string) (*Args, error) {
 	}
 
 	if p.args.Version {
-		fmt.Println("git-tui version 1.0.0")
+		fmt.Println("git-dash version 1.0.0")
 		os.Exit(0)
 	}
 

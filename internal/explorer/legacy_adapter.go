@@ -1,8 +1,8 @@
 package explorer
 
 import (
-	"github.com/jarmocluyse/wip-tui/internal/git"
-	"github.com/jarmocluyse/wip-tui/internal/repository"
+	"github.com/jarmocluyse/git-dash/internal/git"
+	"github.com/jarmocluyse/git-dash/internal/repository"
 )
 
 // Explorer provides backward compatibility interface for directory exploration.

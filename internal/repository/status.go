@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/jarmocluyse/wip-tui/internal/git"
+	"github.com/jarmocluyse/git-dash/internal/git"
 )
 
 // StatusUpdater handles updating Git repository status information.

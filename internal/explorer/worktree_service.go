@@ -1,8 +1,8 @@
 package explorer
 
 import (
-	"github.com/jarmocluyse/wip-tui/internal/git"
-	"github.com/jarmocluyse/wip-tui/internal/repository"
+	"github.com/jarmocluyse/git-dash/internal/git"
+	"github.com/jarmocluyse/git-dash/internal/repository"
 )
 
 // WorktreeService handles git worktree operations and entry creation.

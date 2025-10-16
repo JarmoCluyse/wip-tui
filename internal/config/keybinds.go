@@ -2,7 +2,7 @@ package config
 
 // Keybindings holds configuration for key bindings.
 type Keybindings struct {
-	Actions []Action `toml:"actions"` // List of configurable actions
+	Actions []Action `yaml:"actions"` // List of configurable actions
 }
 
 // FindActionByKey finds an action by its key binding.

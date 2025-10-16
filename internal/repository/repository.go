@@ -1,7 +1,7 @@
 // Package repository provides Git repository management and status tracking functionality.
 package repository
 
-import "github.com/jarmocluyse/wip-tui/internal/git"
+import "github.com/jarmocluyse/git-dash/internal/git"
 
 // Repository represents a Git repository with its status information.
 type Repository struct {
@@ -25,6 +25,14 @@ type NavigableItem struct {
 	Repository   *Repository
 	WorktreeInfo *git.WorktreeInfo
 	ParentRepo   *Repository // For worktrees, reference to parent bare repo
+}
+
+// SummaryData holds aggregated summary information for repositories and navigable items.
+type SummaryData struct {
+	TotalUncommitted int
+	TotalUnpushed    int
+	TotalUntracked   int
+	TotalErrors      int
 }
 
 // Handler manages a collection of repositories.

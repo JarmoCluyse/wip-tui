@@ -11,4 +11,3 @@ Structured logging functionality for debugging and application monitoring.
 - Log file management and rotation
 - Stderr fallback for initialization failures
 - Performance logging for debugging
-

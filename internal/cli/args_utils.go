@@ -21,14 +21,14 @@ func (p *Parser) Define() {
 // PrintUsage adds the usage to flagSet
 func PrintUsage(flagSet *flag.FlagSet) func() {
 	return func() {
-		fmt.Fprintf(flagSet.Output(), "Git TUI - Terminal User Interface for Git Repository Management\n\n")
+		fmt.Fprintf(flagSet.Output(), "Git Dash - Terminal Dashboard for Git Repository Management\n\n")
 		fmt.Fprintf(flagSet.Output(), "Usage: %s [options]\n\n", os.Args[0])
 		fmt.Fprintf(flagSet.Output(), "Options:\n")
 		flagSet.PrintDefaults()
 		fmt.Fprintf(flagSet.Output(), "\nExamples:\n")
 		fmt.Fprintf(flagSet.Output(), "  %s                          # Use default config\n", os.Args[0])
-		fmt.Fprintf(flagSet.Output(), "  %s -c ~/.config/git-tui.toml # Use custom config\n", os.Args[0])
-		fmt.Fprintf(flagSet.Output(), "  %s --config /path/to/config.toml\n", os.Args[0])
+		fmt.Fprintf(flagSet.Output(), "  %s -c ~/.config/git-dash.yaml # Use custom config\n", os.Args[0])
+		fmt.Fprintf(flagSet.Output(), "  %s --config /path/to/config.yaml\n", os.Args[0])
 	}
 }
 

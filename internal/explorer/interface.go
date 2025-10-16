@@ -1,6 +1,6 @@
 package explorer
 
-import "github.com/jarmocluyse/wip-tui/internal/repository"
+import "github.com/jarmocluyse/git-dash/internal/repository"
 
 // DirectoryExplorer provides clean filesystem navigation capabilities.
 type DirectoryExplorer interface {

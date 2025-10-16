@@ -1,7 +1,7 @@
 // Package explorer provides filesystem navigation with Git repository detection and worktree support.
 package explorer
 
-import "github.com/jarmocluyse/wip-tui/internal/git"
+import "github.com/jarmocluyse/git-dash/internal/git"
 
 // FileSystemEntry represents a single filesystem entry with Git repository information.
 type FileSystemEntry struct {

@@ -7,11 +7,11 @@ import (
 
 // Action represents a configurable action with key binding and command.
 type Action struct {
-	Name        string   `toml:"name"`        // Display name for the action
-	Key         string   `toml:"key"`         // Key binding (e.g., "l", "o", "ctrl+o")
-	Command     string   `toml:"command"`     // The command to execute
-	Args        []string `toml:"args"`        // Arguments to pass to the command
-	Description string   `toml:"description"` // Description of what this action does
+	Name        string   `yaml:"name"`        // Display name for the action
+	Key         string   `yaml:"key"`         // Key binding (e.g., "l", "o", "ctrl+o")
+	Command     string   `yaml:"command"`     // The command to execute
+	Args        []string `yaml:"args"`        // Arguments to pass to the command
+	Description string   `yaml:"description"` // Description of what this action does
 }
 
 // ExecuteOpenAction executes the configured action with the given path.

@@ -11,4 +11,3 @@ Filesystem navigation with Git repository detection and worktree support.
 - Path validation and error handling
 - Repository status integration
 - Item categorization for UI display
-

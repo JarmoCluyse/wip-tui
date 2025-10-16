@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jarmocluyse/wip-tui/internal/repository"
+	"github.com/jarmocluyse/git-dash/internal/repository"
 )
 
 // shouldSkipHiddenEntry determines if an entry should be skipped because it's hidden.

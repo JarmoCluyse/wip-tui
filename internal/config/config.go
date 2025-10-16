@@ -2,14 +2,15 @@
 package config
 
 import (
-	"github.com/jarmocluyse/wip-tui/internal/theme"
+	"github.com/jarmocluyse/git-dash/internal/theme"
 )
 
 // Config represents the application configuration.
 type Config struct {
-	RepositoryPaths []string    `toml:"repository_paths"`
-	Theme           theme.Theme `toml:"theme"`
-	Keybindings     Keybindings `toml:"keybindings"`
+	Title           string      `yaml:"title"`
+	RepositoryPaths []string    `yaml:"repository_paths"`
+	Theme           theme.Theme `yaml:"theme"`
+	Keybindings     Keybindings `yaml:"keybindings"`
 }
 
 // NewFileConfigService creates a new file-based config service.

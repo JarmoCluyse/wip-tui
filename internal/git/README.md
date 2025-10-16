@@ -12,4 +12,3 @@ Git repository detection, status checking, and worktree management.
 - Repository state caching for performance
 - Error handling for Git operations
 - Bare repository detection
-

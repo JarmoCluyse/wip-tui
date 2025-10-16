@@ -1,17 +1,22 @@
 package main
 
 import (
-	"github.com/jarmocluyse/wip-tui/internal/config"
-	"github.com/jarmocluyse/wip-tui/internal/git"
-	"github.com/jarmocluyse/wip-tui/internal/repository"
-	"github.com/jarmocluyse/wip-tui/internal/ui"
+	"github.com/jarmocluyse/git-dash/internal/config"
+	"github.com/jarmocluyse/git-dash/internal/git"
+	"github.com/jarmocluyse/git-dash/internal/repository"
+	explorerService "github.com/jarmocluyse/git-dash/internal/services/explorer"
+	repositoryService "github.com/jarmocluyse/git-dash/internal/services/repository"
+	themeService "github.com/jarmocluyse/git-dash/internal/services/theme"
+	"github.com/jarmocluyse/git-dash/ui"
 )
 
 // AppDependencies implements the ui.Dependencies interface.
 type AppDependencies struct {
-	configService config.ConfigService
-	statusUpdater *repository.StatusUpdater
-	gitChecker    git.StatusChecker
+	configService     config.ConfigService
+	statusUpdater     *repository.StatusUpdater
+	repositoryService repositoryService.Service
+	themeService      themeService.Service
+	explorerService   explorerService.Service
 }
 
 // NewAppDependencies creates a new dependency container with services.
@@ -26,10 +31,17 @@ func NewAppDependencies(configPath string) *AppDependencies {
 	gitChecker := git.NewCachedChecker()
 	statusUpdater := repository.NewStatusUpdater(gitChecker)
 
+	// Create services
+	repositoryManager := repositoryService.NewManager(configService, statusUpdater, gitChecker)
+	themeManager := themeService.NewManager(configService)
+	explorerManager := explorerService.NewManager(gitChecker)
+
 	return &AppDependencies{
-		configService: configService,
-		statusUpdater: statusUpdater,
-		gitChecker:    gitChecker,
+		configService:     configService,
+		statusUpdater:     statusUpdater,
+		repositoryService: repositoryManager,
+		themeService:      themeManager,
+		explorerService:   explorerManager,
 	}
 }
 
@@ -38,14 +50,19 @@ func (d *AppDependencies) GetConfigService() config.ConfigService {
 	return d.configService
 }
 
-// GetStatusUpdater returns the repository status updater.
-func (d *AppDependencies) GetStatusUpdater() *repository.StatusUpdater {
-	return d.statusUpdater
+// GetRepositoryService returns the repository service.
+func (d *AppDependencies) GetRepositoryService() repositoryService.Service {
+	return d.repositoryService
 }
 
-// GetGitChecker returns the git status checker.
-func (d *AppDependencies) GetGitChecker() git.StatusChecker {
-	return d.gitChecker
+// GetThemeService returns the theme service.
+func (d *AppDependencies) GetThemeService() themeService.Service {
+	return d.themeService
+}
+
+// GetExplorerService returns the explorer service.
+func (d *AppDependencies) GetExplorerService() explorerService.Service {
+	return d.explorerService
 }
 
 // Verify at compile time that AppDependencies implements ui.Dependencies

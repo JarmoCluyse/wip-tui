@@ -4,7 +4,7 @@ Configuration management including file loading, keybindings, and application se
 
 ## Functionality
 
-- TOML configuration file loading and parsing
+- YAML configuration file loading and parsing
 - Default configuration generation
 - Repository path management
 - Keybinding configuration and customization
@@ -12,4 +12,3 @@ Configuration management including file loading, keybindings, and application se
 - Action mapping and service configuration
 - File-based configuration persistence
 - Configuration validation and error handling
-
