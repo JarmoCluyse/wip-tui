@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/jarmocluyse/git-dash/internal/theme"
+	theme "github.com/jarmocluyse/git-dash/internal/theme/types"
 	"github.com/jarmocluyse/git-dash/ui/pages/details"
 	"github.com/jarmocluyse/git-dash/ui/pages/settings"
 	"github.com/jarmocluyse/git-dash/ui/types"

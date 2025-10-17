@@ -1,15 +1,13 @@
 // Package config provides configuration management for the application.
 package config
 
-import (
-	"github.com/jarmocluyse/git-dash/internal/theme"
-)
+import "github.com/jarmocluyse/git-dash/internal/theme/types"
 
 // Config represents the application configuration.
 type Config struct {
 	Title           string      `yaml:"title"`
 	RepositoryPaths []string    `yaml:"repository_paths"`
-	Theme           theme.Theme `yaml:"theme"`
+	Theme           types.Theme `yaml:"theme"`
 	Keybindings     Keybindings `yaml:"keybindings"`
 }
 

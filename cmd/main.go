@@ -8,8 +8,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/jarmocluyse/git-dash/internal/cli"
+	"github.com/jarmocluyse/git-dash/internal/config"
 	"github.com/jarmocluyse/git-dash/internal/env"
 	"github.com/jarmocluyse/git-dash/internal/logging"
+	"github.com/jarmocluyse/git-dash/internal/repomanager"
+	themeService "github.com/jarmocluyse/git-dash/internal/services/theme"
 	"github.com/jarmocluyse/git-dash/ui"
 )
 
@@ -26,7 +29,17 @@ func main() {
 	env.LoadEnvFile()
 	logging.Init()
 
-	deps := NewAppDependencies(args.ConfigPath)
+	var configService config.ConfigService
+	if args.ConfigPath != "" {
+		configService = config.NewFileConfigServiceWithPath(args.ConfigPath)
+	} else {
+		configService = config.NewFileConfigService()
+	}
+
+	// Create services
+	repoManager := repomanager.NewRepoManager(configService)
+	themeManager := themeService.NewManager(configService)
+
 	model := ui.CreateInitialModel(deps)
 	program := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 

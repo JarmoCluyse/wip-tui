@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jarmocluyse/git-dash/internal/config"
 	"github.com/jarmocluyse/git-dash/internal/repomanager"
-	"github.com/jarmocluyse/git-dash/internal/theme"
+	"github.com/jarmocluyse/git-dash/internal/theme/types"
 	"github.com/jarmocluyse/git-dash/ui/components/direxplorer"
 	"github.com/jarmocluyse/git-dash/ui/components/help"
 	"github.com/jarmocluyse/git-dash/ui/header"
@@ -24,19 +24,19 @@ const (
 type SettingsData struct {
 	Repositories []*repomanager.RepoItem
 	Actions      []config.Action
-	Theme        theme.Theme
+	Theme        types.Theme
 	Keybindings  config.Keybindings
 }
 
 // Renderer handles rendering of the settings page
 type Renderer struct {
 	styles StyleConfig
-	theme  theme.Theme
+	theme  types.Theme
 	header *header.Renderer
 }
 
 // NewRenderer creates a new settings page renderer
-func NewRenderer(styles StyleConfig, themeConfig theme.Theme) *Renderer {
+func NewRenderer(styles StyleConfig, themeConfig types.Theme) *Renderer {
 	return &Renderer{
 		styles: styles,
 		theme:  themeConfig,
@@ -133,7 +133,7 @@ func (r *Renderer) renderActionsSection(actions []config.Action, cursor int, wid
 }
 
 // renderThemeSection renders the theme settings section with full editor
-func (r *Renderer) renderThemeSection(themeConfig theme.Theme, cursor int, width int, themeEditMode bool, themeEditValue string) string {
+func (r *Renderer) renderThemeSection(themeConfig types.Theme, cursor int, width int, themeEditMode bool, themeEditValue string) string {
 	var content string
 	content += r.styles.SectionTitle.Render("Theme Editor:") + "\n\n"
 
@@ -182,7 +182,7 @@ type ThemeItem struct {
 }
 
 // getAllThemeItems returns all editable theme items
-func (r *Renderer) getAllThemeItems(themeConfig theme.Theme) []ThemeItem {
+func (r *Renderer) getAllThemeItems(themeConfig types.Theme) []ThemeItem {
 	var items []ThemeItem
 
 	// Colors

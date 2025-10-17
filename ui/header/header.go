@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/jarmocluyse/git-dash/internal/theme"
+	"github.com/jarmocluyse/git-dash/internal/theme/types"
 )
 
 // Renderer handles rendering of application headers/titles.
@@ -15,7 +15,7 @@ type Renderer struct {
 }
 
 // NewRenderer creates a new header renderer with the given theme.
-func NewRenderer(themeConfig theme.Theme) *Renderer {
+func NewRenderer(themeConfig types.Theme) *Renderer {
 	return &Renderer{
 		titleStyle: lipgloss.NewStyle().
 			Bold(true).

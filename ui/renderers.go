@@ -3,7 +3,7 @@ package ui
 import (
 	"github.com/jarmocluyse/git-dash/internal/config"
 	"github.com/jarmocluyse/git-dash/internal/repomanager"
-	"github.com/jarmocluyse/git-dash/internal/theme"
+	theme "github.com/jarmocluyse/git-dash/internal/theme/types"
 	"github.com/jarmocluyse/git-dash/ui/components/direxplorer"
 	actionconfig "github.com/jarmocluyse/git-dash/ui/pages/action-config"
 	"github.com/jarmocluyse/git-dash/ui/pages/home"

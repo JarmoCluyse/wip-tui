@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jarmocluyse/git-dash/internal/config"
 	"github.com/jarmocluyse/git-dash/internal/repomanager"
-	"github.com/jarmocluyse/git-dash/internal/theme"
+	theme "github.com/jarmocluyse/git-dash/internal/theme/types"
 	"github.com/jarmocluyse/git-dash/ui/components/help"
 	"github.com/jarmocluyse/git-dash/ui/header"
 	"github.com/jarmocluyse/git-dash/ui/types"

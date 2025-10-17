@@ -2,7 +2,7 @@ package settings
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"github.com/jarmocluyse/git-dash/internal/theme"
+	"github.com/jarmocluyse/git-dash/internal/theme/types"
 )
 
 // StyleConfig contains all the styles needed for settings page rendering
@@ -15,7 +15,7 @@ type StyleConfig struct {
 }
 
 // CreateStyleConfig creates a style configuration for the settings page
-func CreateStyleConfig(themeConfig theme.Theme) StyleConfig {
+func CreateStyleConfig(themeConfig types.Theme) StyleConfig {
 	return StyleConfig{
 		Item: lipgloss.NewStyle(),
 		SelectedItem: lipgloss.NewStyle().

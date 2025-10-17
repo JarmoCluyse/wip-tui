@@ -1,71 +1,14 @@
 // Package theme provides theming configuration for the application.
 package theme
 
-// Theme represents the complete theme configuration.
-type Theme struct {
-	Colors     Colors     `yaml:"colors"`
-	Indicators Indicators `yaml:"indicators"`
-	Icons      Icons      `yaml:"icons"`
-}
-
-// Colors defines all color values used in the UI.
-type Colors struct {
-	Title              string `yaml:"title"`
-	TitleBackground    string `yaml:"title_background"`
-	Selected           string `yaml:"selected"`
-	SelectedBackground string `yaml:"selected_background"`
-	StatusClean        string `yaml:"status_clean"`
-	StatusDirty        string `yaml:"status_dirty"`
-	StatusUnpushed     string `yaml:"status_unpushed"`
-	StatusUntracked    string `yaml:"status_untracked"`
-	StatusError        string `yaml:"status_error"`
-	StatusNotAdded     string `yaml:"status_not_added"`
-	Help               string `yaml:"help"`
-	Border             string `yaml:"border"`
-	ModalBackground    string `yaml:"modal_background"`
-	Branch             string `yaml:"branch"`
-	IconRegular        string `yaml:"icon_regular"`
-	IconBare           string `yaml:"icon_bare"`
-	IconWorktree       string `yaml:"icon_worktree"`
-}
-
-// Indicators defines all status indicator symbols.
-type Indicators struct {
-	Clean       string `yaml:"clean"`
-	Dirty       string `yaml:"dirty"`
-	Unpushed    string `yaml:"unpushed"`
-	Untracked   string `yaml:"untracked"`
-	Error       string `yaml:"error"`
-	NotAdded    string `yaml:"not_added"`
-	Selected    string `yaml:"selected"`
-	SelectedEnd string `yaml:"selected_end"`
-}
-
-// Icons defines all icon symbols used in the UI.
-type Icons struct {
-	Repository struct {
-		Regular  string `yaml:"regular"`
-		Bare     string `yaml:"bare"`
-		Worktree string `yaml:"worktree"`
-	} `yaml:"repository"`
-	Branch struct {
-		Icon string `yaml:"icon"`
-	} `yaml:"branch"`
-	Tree struct {
-		Branch string `yaml:"branch"`
-		Last   string `yaml:"last"`
-	} `yaml:"tree"`
-	Folder struct {
-		Icon string `yaml:"icon"`
-	} `yaml:"folder"`
-}
+import "github.com/jarmocluyse/git-dash/internal/theme/types"
 
 // Default returns the default theme configuration.
 // This is the authoritative source for all theme defaults.
 // Config files can override individual values which will be merged with these defaults.
-func Default() Theme {
-	return Theme{
-		Colors: Colors{
+func Default() types.Theme {
+	return types.Theme{
+		Colors: types.Colors{
 			Title:              "#FAFAFA",
 			TitleBackground:    "#7D56F4",
 			Selected:           "#7D56F4",
@@ -84,7 +27,7 @@ func Default() Theme {
 			IconBare:           "#FFA500",
 			IconWorktree:       "#32CD32",
 		},
-		Indicators: Indicators{
+		Indicators: types.Indicators{
 			Clean:       "󰄬 ",
 			Dirty:       "󰏫 ",
 			Unpushed:    "󰕒 ",
@@ -94,7 +37,7 @@ func Default() Theme {
 			Selected:    "󰒊 ",
 			SelectedEnd: "▌",
 		},
-		Icons: Icons{
+		Icons: types.Icons{
 			Repository: struct {
 				Regular  string `yaml:"regular"`
 				Bare     string `yaml:"bare"`
@@ -128,7 +71,7 @@ func Default() Theme {
 // MergeWithDefault takes a user theme and fills in any missing values with defaults.
 // This allows config files to specify only the values they want to override,
 // while ensuring all theme properties have valid values.
-func MergeWithDefault(userTheme Theme) Theme {
+func MergeWithDefault(userTheme types.Theme) types.Theme {
 	defaultTheme := Default()
 
 	// Merge colors - use user value if not empty, otherwise use default

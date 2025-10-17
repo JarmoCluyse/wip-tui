@@ -10,7 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jarmocluyse/git-dash/internal/config"
 	"github.com/jarmocluyse/git-dash/internal/logging"
-	"github.com/jarmocluyse/git-dash/internal/theme"
+	"github.com/jarmocluyse/git-dash/internal/theme/types"
 	"github.com/jarmocluyse/git-dash/ui/components/direxplorer"
 )
 
@@ -818,7 +818,7 @@ type ThemeItem struct {
 }
 
 // getAllThemeItems returns all editable theme items (copied from settings renderer for consistency)
-func (h *KeyHandler) getAllThemeItems(themeConfig theme.Theme) []ThemeItem {
+func (h *KeyHandler) getAllThemeItems(themeConfig types.Theme) []ThemeItem {
 	var items []ThemeItem
 
 	// Colors

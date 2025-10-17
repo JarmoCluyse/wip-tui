@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jarmocluyse/git-dash/internal/config"
-	"github.com/jarmocluyse/git-dash/internal/theme"
+	"github.com/jarmocluyse/git-dash/internal/theme/types"
 	"github.com/jarmocluyse/git-dash/ui/components/help"
 	"github.com/jarmocluyse/git-dash/ui/header"
 )
@@ -14,12 +14,12 @@ import (
 // Renderer handles rendering of the action configuration page
 type Renderer struct {
 	styles StyleConfig
-	theme  theme.Theme
+	theme  types.Theme
 	header *header.Renderer
 }
 
 // NewRenderer creates a new action config page renderer
-func NewRenderer(styles StyleConfig, themeConfig theme.Theme) *Renderer {
+func NewRenderer(styles StyleConfig, themeConfig types.Theme) *Renderer {
 	return &Renderer{
 		styles: styles,
 		theme:  themeConfig,

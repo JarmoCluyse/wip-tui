@@ -4,8 +4,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jarmocluyse/git-dash/internal/config"
 	"github.com/jarmocluyse/git-dash/internal/repomanager"
-	themeService "github.com/jarmocluyse/git-dash/internal/services/theme"
 	"github.com/jarmocluyse/git-dash/internal/theme"
+	themeTypes "github.com/jarmocluyse/git-dash/internal/theme/types"
 	"github.com/jarmocluyse/git-dash/ui/components/direxplorer"
 	"github.com/jarmocluyse/git-dash/ui/types"
 )
@@ -23,7 +23,7 @@ const (
 type Dependencies interface {
 	GetConfigService() config.ConfigService
 	GetRepoManager() *repomanager.RepoManager
-	GetThemeService() themeService.Service
+	GetThemeService() theme.Service
 }
 
 type Model struct {
@@ -100,7 +100,7 @@ type StyleConfig struct {
 }
 
 // CreateStyleConfig creates a new StyleConfig using the provided theme configuration.
-func CreateStyleConfig(themeConfig theme.Theme) StyleConfig {
+func CreateStyleConfig(themeConfig themeTypes.Theme) StyleConfig {
 	return StyleConfig{
 		Item: lipgloss.NewStyle(),
 		SelectedItem: lipgloss.NewStyle().

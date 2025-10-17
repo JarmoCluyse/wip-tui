@@ -1,28 +1,11 @@
-// Package theme provides theme management services for the application.
 package theme
 
-import (
-	"github.com/jarmocluyse/git-dash/internal/config"
-	"github.com/jarmocluyse/git-dash/internal/theme"
-)
-
-// Manager implements the theme service interface.
-type Manager struct {
-	currentTheme  *theme.Theme
-	configService config.ConfigService
-}
-
-// NewManager creates a new theme manager instance.
-func NewManager(configService config.ConfigService) *Manager {
-	return &Manager{
-		configService: configService,
-	}
-}
+import "github.com/jarmocluyse/git-dash/internal/theme/types"
 
 // LoadTheme loads the theme from configuration, merging with defaults.
-func (m *Manager) LoadTheme() (*theme.Theme, error) {
+func (m *Manager) LoadTheme() (*types.Theme, error) {
 	// Start with default theme
-	currentTheme := theme.Default()
+	currentTheme := Default()
 
 	// Load configuration if available
 	if m.configService != nil {
@@ -35,7 +18,7 @@ func (m *Manager) LoadTheme() (*theme.Theme, error) {
 
 		// Merge user theme with defaults
 		// Since Theme is a value type, we can directly merge it
-		currentTheme = theme.MergeWithDefault(config.Theme)
+		currentTheme = MergeWithDefault(config.Theme)
 	}
 
 	m.currentTheme = &currentTheme
@@ -43,14 +26,14 @@ func (m *Manager) LoadTheme() (*theme.Theme, error) {
 }
 
 // GetTheme returns the current theme, loading it if necessary.
-func (m *Manager) GetTheme() *theme.Theme {
+func (m *Manager) GetTheme() *types.Theme {
 	if m.currentTheme == nil {
 		// Load theme if not already loaded
 		if loadedTheme, err := m.LoadTheme(); err == nil {
 			return loadedTheme
 		}
 		// Fallback to default if loading fails
-		defaultTheme := theme.Default()
+		defaultTheme := Default()
 		m.currentTheme = &defaultTheme
 	}
 	return m.currentTheme
@@ -63,11 +46,11 @@ func (m *Manager) RefreshTheme() error {
 }
 
 // GetDefaultTheme returns the default theme configuration.
-func (m *Manager) GetDefaultTheme() theme.Theme {
-	return theme.Default()
+func (m *Manager) GetDefaultTheme() types.Theme {
+	return Default()
 }
 
 // MergeWithDefault merges a user theme with the default theme.
-func (m *Manager) MergeWithDefault(userTheme theme.Theme) theme.Theme {
-	return theme.MergeWithDefault(userTheme)
+func (m *Manager) MergeWithDefault(userTheme types.Theme) types.Theme {
+	return MergeWithDefault(userTheme)
 }

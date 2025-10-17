@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/jarmocluyse/git-dash/internal/theme"
+	"github.com/jarmocluyse/git-dash/internal/theme/types"
 )
 
 // DirItem represents a directory or file in the explorer
@@ -28,7 +28,7 @@ type Explorer struct {
 	items          []DirItem
 	cursor         int
 	styles         StyleConfig
-	theme          theme.Theme
+	theme          types.Theme
 	addedRepoPaths map[string]bool // Track which repositories are already added
 }
 
@@ -45,7 +45,7 @@ type StyleConfig struct {
 }
 
 // NewExplorer creates a new directory explorer
-func NewExplorer(startPath string, styles StyleConfig, themeConfig theme.Theme) *Explorer {
+func NewExplorer(startPath string, styles StyleConfig, themeConfig types.Theme) *Explorer {
 	explorer := &Explorer{
 		currentPath:    startPath,
 		cursor:         0,
@@ -312,10 +312,7 @@ func (e *Explorer) Render(width, height int) string {
 	if len(e.items) > maxVisible {
 		totalItems := len(e.items)
 		visibleStart := scrollOffset + 1
-		visibleEnd := scrollOffset + maxVisible
-		if visibleEnd > totalItems {
-			visibleEnd = totalItems
-		}
+		visibleEnd := min(scrollOffset+maxVisible, totalItems)
 
 		scrollInfo := fmt.Sprintf("(%d-%d of %d)", visibleStart, visibleEnd, totalItems)
 		content.WriteString("\n" + e.styles.EmptyState.Render(scrollInfo))
